@@ -25,6 +25,8 @@ Description: Estimates Gaussian graphical models whose mean and precision matrix
     clusters. The method is described in Mapelli et al. (2026)
     <doi:10.48550/arXiv.2606.31805>.
 License: GPL-3
+URL: https://github.com/AlessiaMapelli/prCGGM
+BugReports: https://github.com/AlessiaMapelli/prCGGM/issues
 Encoding: UTF-8
 Language: en-GB
 LazyData: true
