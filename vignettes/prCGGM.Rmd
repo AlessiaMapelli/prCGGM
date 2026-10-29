@@ -1,0 +1,246 @@
+---
+title: "Getting started with prCGGM"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting started with prCGGM}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 5,
+                      fig.height = 4.5)
+```
+
+**prCGGM** estimates *prior-informed conditional Gaussian graphical models*
+(Mapelli et al., 2026), in which the conditional dependencies among $p$
+features are allowed to change with sample-level covariates, and prior
+knowledge on the network guides its estimation.
+
+## The model
+
+Consider, for example, the expression levels of $p$ proteins
+$Y = (Y_1, \ldots, Y_p)^T$, $q$ covariates $X = (X_1, \ldots, X_q)^T$ that
+may influence them, and prior knowledge on the protein interactions, such
+as 'STRING' confidence scores, collected in a weight matrix
+$W \in [0, 1]^{p \times p}$. The model
+assumes that the expression data follow a multivariate **Gaussian** distribution given the covariates, with a mean
+and a precision matrix that both depend **linearly** on $X$:
+$$
+Y \mid X \sim N_p\big(B (1, X^T)^T,\, \Omega(X)^{-1}\big),
+\qquad
+\Omega(X) = \Delta_0 + \sum_{h=1}^q X_h \Delta_h ,
+$$
+where $B$ is the $p \times (q + 1)$ matrix of covariate effects on the means, $\Delta_0$ is the $p \times p$ baseline network and $\Delta_h$, $h = 1, \ldots, q$, are the $p \times p$ covariate-specific components, which describe how covariate $h$ modulates the edges.
+
+A zero entry $\Omega_{jk}(X) = 0$ means that features $j$ and $k$ are
+conditionally independent given all the others. The network of an
+individual is therefore given by the non-zero entries of $\Omega(X)$, which
+combines the baseline network with the covariate-specific components
+according to the individual's covariates.
+
+**Note.** Numeric covariates are standardised and factors are dummy coded
+with the first level as the reference, so $\Delta_0$ is the network of the
+reference group at the mean of the numeric covariates. Use `factor()` or
+`relevel()` to choose the reference level.
+
+## Estimation
+
+The model is estimated by node-wise penalised regressions, in two steps:
+
+1. **Mean.** Each feature is regressed on the covariates with a lasso
+   penalty to estimate $B$; the residuals are kept for the next step.
+2. **Network.** For each node $j$, the residuals of node $j$ are regressed
+   on the residuals of the other nodes and on their interactions with the
+   covariates, using the sparse-group lasso penalty
+   $$
+   \alpha\lambda \|(1 - W_{j,-j}) \odot d_j^0\|_1 +
+   \vartheta\alpha\lambda \|d_j^{-0}\|_1 +
+   (1 - \alpha)\lambda \sum_{h=1}^q \|d_j^h\|_2 ,
+   $$
+   where $d_j^0$ and $d_j^h$ are the coefficients from which $\Delta_0$ and $\Delta_h$ are respectively estimated. 
+
+The prior weights $W$ enter only the first term, so edges with strong prior
+support ($W_{jk} \approx 1$) are penalised less in the baseline network,
+while the covariate-specific changes are learnt from the data alone. The
+penalty depends on three hyperparameters: $\lambda$ sets the overall
+sparsity, $\alpha$ balances element-wise and group sparsity, and
+$\vartheta$ sets the penalty on covariate-specific effects relative to the
+baseline (see [Hyperparameters](#hyperparameters)). The node-wise estimates
+are finally combined into symmetric networks. The full estimation procedure
+is described in Mapelli et al. (2026).
+
+```{r setup}
+library(prCGGM)
+```
+
+## Example data
+
+The package ships a small simulated data set with 1000 subjects, 10 proteins,
+one binary covariate and a prior weight matrix.
+
+```{r data}
+data(prcggm_example)
+x <- prcggm_example$x
+covariates <- prcggm_example$covariates
+prior <- prcggm_example$prior
+dim(x)
+table(covariates$x1)
+prior[1:5, 1:5]
+```
+
+## One function, four models
+
+`prcggm()` fits the model that matches the inputs you provide:
+
+| Inputs | Model |
+|---|---|
+| `x` only | neighbourhood-selection GGM (lasso) |
+| `x`, `prior` | prior-weighted GGM |
+| `x`, `covariates` | conditional GGM |
+| `x`, `covariates`, `prior` | prior-informed conditional GGM |
+
+```{r variants}
+set.seed(1)
+fit_ggm <- prcggm(x)
+fit_ggm
+fit_full <- prcggm(x, covariates = covariates, prior = prior, tune = FALSE)
+fit_full
+```
+
+Both fits return a `"prcggm"` object. Its main elements are:
+
+* `mean_effects`: the estimated covariate effects on the means
+  ($\hat B$, one row per feature, intercept first);
+* `precision`: the estimated precision matrix components `"Baseline"` for $\Delta_0$ followed by one covariate-specific component
+  per encoded covariate $\Delta_h$; the model without covariates
+  only has the baseline;
+* `networks`: the corresponding estimated networks as symmetric adjacency matrices of partial-correlation-type edge weights.
+* `tuning`: the hyperparameters selected for each node.
+
+See the *Value* section of `?prcggm` for all the elements.
+
+**Note.** Call `set.seed()` before `prcggm()` to make the results reproducible.
+
+## Hyperparameters
+
+For each node, the overall penalty $\lambda$ is chosen by cross-validation (`lambda.min` by
+default; set `lambda_prec_type = "1se"` for sparser networks). The balance
+$\alpha$ between element-wise and group sparsity and the relative penalty
+$\vartheta$ on covariate-specific effects are chosen by minimising the node-wise BIC over `alpha_grid` and `theta_grid`. With
+`tune = FALSE` the first value of each grid is used.
+
+```{r tuning}
+set.seed(1)
+fit <- prcggm(x, covariates = covariates, prior = prior,
+              alpha_grid = c(0.5, 0.9), theta_grid = c(1, 1.3))
+fit$tuning
+```
+
+For large grids, `random_search = TRUE` evaluates a random proportion
+`p_random` of the combinations at each node.
+
+The cross-validation folds (shared by all nodes and hyperparameter values)
+and the random-search subsets are drawn from the random number generator
+before any model is fitted, which is why `set.seed()` makes the results
+reproducible, also when running in parallel.
+
+## Inspecting the fit
+
+```{r summary}
+summary(fit)
+```
+
+`fit$networks` contains the symmetric adjacency matrices: `"Baseline"` and one
+matrix per covariate effect, named after the encoded covariate. Factors are
+dummy coded with the first level as the reference, so `"x1_1"` is the change
+in the network for subjects with `x1 = 1` compared with `x1 = 0`. Use
+`factor()` or `relevel()` to choose the reference level.
+
+```{r plot-baseline}
+plot(fit)
+```
+
+```{r plot-covariate}
+plot(fit, component = "x1_1")
+```
+
+## Personalised networks
+
+The network of a new individual is the baseline plus the covariate effects
+weighted by the individual's covariates. `predict()` applies the same
+standardisation and dummy coding as in the estimation data.
+
+```{r predict}
+new_subjects <- data.frame(x1 = factor(c("0", "1")))
+nets <- predict(fit, new_subjects)
+names(nets)
+compare_networks(nets$Subject_1, nets$Subject_2, method = "frobenius")
+```
+
+```{r plot-difference}
+plot_network_difference(nets$Subject_2, nets$Subject_1)
+```
+
+## Simulating data
+
+`simulate_prcggm_data()` generates data from the model, with a scale-free
+baseline network, random covariate effects and a perfect, noisy or absent
+prior, which is useful to explore the method.
+
+```{r simulate}
+set.seed(2)
+sim <- simulate_prcggm_data(n = 500, p = 8, n_binary = 1, n_continuous = 1,
+                            prior = "noisy")
+fit_sim <- prcggm(sim$x, covariates = sim$covariates, prior = sim$prior,
+                  tune = FALSE)
+names(fit_sim$networks)
+```
+
+## Larger problems
+
+### Pre-screening
+
+When $p \times q$ is large compared with $n$, `screening = TRUE` removes, for
+each node, the predictors whose absolute correlation with the node does not
+exceed `gamma` (by default the 20th percentile of all absolute pairwise
+correlations). A custom 0/1 matrix can be supplied with `screening_matrix`.
+Pairs with prior support are never removed.
+
+### Parallel computing
+
+The node-wise regressions are independent. `ncores` runs them in parallel on
+the local machine:
+
+```{r parallel, eval = FALSE}
+fit <- prcggm(x, covariates = covariates, prior = prior, ncores = 4)
+```
+
+### SLURM clusters
+
+For very large networks each node can be a separate task of a 'SLURM' array
+job. The workflow has three non-interactive steps:
+
+```{r slurm, eval = FALSE}
+# 1. Prepare the inputs and job scripts in a shared directory
+job <- prcggm_slurm_prepare(x, covariates = covariates, prior = prior,
+                            dir = "/scratch/my_project/prcggm")
+job$command   # the sbatch command to submit from a shell
+
+# 2. Each array task runs prcggm_node() through the copied job script.
+#    Edit prcggm_node.sbatch (partition, memory, R module) before submitting.
+
+# 3. When all tasks have completed
+fit <- prcggm_slurm_collect("/scratch/my_project/prcggm")
+```
+
+## References
+
+Mapelli, A., Massi, M. C., Cuccuru, G., Di Angelantonio, E. and Ieva, F.
+(2026). Prior-informed conditional Gaussian graphical models: an application
+to protein interaction network reconstruction. arXiv:2606.31805.
+<https://doi.org/10.48550/arXiv.2606.31805>
+
+Zhang, J. and Li, Y. (2023). High-dimensional Gaussian graphical regression
+models with covariates. *Journal of the American Statistical Association*,
+118(543), 2088--2100.

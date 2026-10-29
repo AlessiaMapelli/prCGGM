@@ -1,0 +1,20 @@
+bibentry(
+  bibtype = "Misc",
+  title = paste("Prior-informed conditional Gaussian graphical models:",
+                "an application to protein interaction network reconstruction"),
+  author = c(person("Alessia", "Mapelli"),
+             person("Michela Carlotta", "Massi"),
+             person("Gianmauro", "Cuccuru"),
+             person("Emanuele", "Di Angelantonio"),
+             person("Francesca", "Ieva")),
+  year = "2026",
+  eprint = "2606.31805",
+  archivePrefix = "arXiv",
+  doi = "10.48550/arXiv.2606.31805",
+  url = "https://arxiv.org/abs/2606.31805",
+  textVersion = paste(
+    "Mapelli A, Massi MC, Cuccuru G, Di Angelantonio E, Ieva F (2026).",
+    "Prior-informed conditional Gaussian graphical models: an application",
+    "to protein interaction network reconstruction. arXiv:2606.31805.",
+    "doi:10.48550/arXiv.2606.31805")
+)

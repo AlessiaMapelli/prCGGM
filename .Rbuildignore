@@ -1,0 +1,11 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^data-raw$
+^cran-comments\.md$
+^\.github$
+^README\.Rmd$
+^.*\.tar\.gz$
+^prCGGM\.Rcheck$
+^doc$
+^Meta$
+\.DS_Store$
