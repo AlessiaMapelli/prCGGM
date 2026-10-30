@@ -27,6 +27,14 @@ Mapelli, A., Massi, M. C., Cuccuru, G., Di Angelantonio, E. and Ieva, F.
 application to protein interaction network reconstruction.
 arXiv:2606.31805. \doi{10.48550/arXiv.2606.31805}
 }
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://github.com/AlessiaMapelli/prCGGM}
+  \item Report bugs at \url{https://github.com/AlessiaMapelli/prCGGM/issues}
+}
+
+}
 \author{
 \strong{Maintainer}: Alessia Mapelli \email{alessia.mapelli@polimi.it}
 
