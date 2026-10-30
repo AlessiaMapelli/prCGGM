@@ -7,8 +7,8 @@ This is a new submission.
 * local macOS (aarch64), R 4.3.0
 * win-builder: Windows Server 2022, R-devel (2026-10-28 r90783 ucrt)
 * win-builder: Windows Server 2022, R-release (4.6.2)
-* macOS builder (R-release)            <!-- TODO -->
-* R-hub (Linux, R-devel)               <!-- TODO -->
+* R-hub v2 (GitHub Actions), R-devel: Ubuntu Linux (x86_64), Windows
+  (x86_64), macOS (x86_64) and macOS (arm64)
 
 ## R CMD check results
 
