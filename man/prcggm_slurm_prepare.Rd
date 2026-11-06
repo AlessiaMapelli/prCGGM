@@ -18,16 +18,20 @@ prcggm_slurm_prepare(
   lambda_mean = NULL,
   lambda_mean_type = c("min", "1se"),
   lambda_prec = NULL,
-  lambda_prec_type = c("min", "1se"),
+  selection = c("ebic_relaxed", "bic_relaxed", "bic", "ebic", "cv_min", "cv_1se",
+    "stability_bic", "stability_cv"),
+  refit = TRUE,
+  selection_control = list(),
   tune = TRUE,
-  alpha_grid = c(0.75, 0.5, 0.9, 0.95),
-  theta_grid = c(1, 0.8, 1.1, 1.3, 1.5),
+  alpha_grid = c(0.75, 0.5, 0.9, 0.99),
+  theta_grid = c(1, 0.8, 1.1, 1.3),
   random_search = FALSE,
   p_random = 0.5,
   nfolds = 5,
   symm_method = c("OR", "AND"),
   copy_templates = TRUE,
-  verbose = FALSE
+  verbose = FALSE,
+  lambda_prec_type = NULL
 )
 
 prcggm_node(input, node, output_dir = dirname(input))
@@ -86,18 +90,29 @@ sparser models. Ignored if \code{lambda_mean} is supplied or if \eqn{q = 1},
 in which case the mean is estimated by least squares.}
 
 \item{lambda_prec}{Optional fixed penalty for the node-wise network
-regressions. If \code{NULL} (default), it is selected by cross-validation
-with \code{\link[sparsegl:cv.sparsegl]{sparsegl::cv.sparsegl()}} (or \code{\link[glmnet:cv.glmnet]{glmnet::cv.glmnet()}} when there are
-neither covariates nor prior).}
+regressions. If \code{NULL} (default), it is selected with the rule given by
+\code{selection}.}
 
-\item{lambda_prec_type}{Cross-validation rule used to select
-\code{lambda_prec}: \code{"min"} (default, \code{lambda.min}) or \code{"1se"}
-(\code{lambda.1se}), with the same meaning as for \code{lambda_mean_type}.
-Ignored if \code{lambda_prec} is supplied.}
+\item{selection}{Rule used to select the penalty of the node-wise network
+regressions and the hyperparameters: \code{"ebic_relaxed"} (default),
+\code{"bic_relaxed"}, \code{"bic"}, \code{"ebic"}, \code{"cv_min"}, \code{"cv_1se"},
+\code{"stability_bic"} or \code{"stability_cv"}. See \emph{Selection rules}.}
+
+\item{refit}{Logical; if \code{TRUE} (default), the predictors selected for
+each node are refitted by least squares, so that the edge weights are not
+shrunk. The selected edges do not change. Always \code{TRUE} for stability
+selection.}
+
+\item{selection_control}{List of settings of the selection rules, any of
+\code{ebic_gamma} (EBIC parameter, default 0.5), \code{stab_B} (number of
+subsamples, default 50), \code{stab_fraction} (subsample size as a fraction of
+\eqn{n}, default 0.5), \code{stab_pi} (selection-frequency threshold, default
+0.75) and \code{stab_pfer} (bound on the expected number of false selections
+per node, default 1).}
 
 \item{tune}{Logical; if \code{TRUE} (default) \eqn{\alpha}{alpha} and \eqn{\vartheta}{theta}
-are tuned by BIC over \code{alpha_grid} and \code{theta_grid}. If \code{FALSE}, the
-first value of each grid is used.}
+are selected over \code{alpha_grid} and \code{theta_grid} with the rule given by
+\code{selection}. If \code{FALSE}, the first value of each grid is used.}
 
 \item{alpha_grid}{Candidate values in [0, 1] for \eqn{\alpha}{alpha}, the balance
 between element-wise sparsity (\eqn{\alpha \to 1}{alpha -> 1}) and group sparsity
@@ -113,7 +128,9 @@ subset of the \eqn{\alpha}{alpha} and \eqn{\vartheta}{theta} hyperparameter grid
 \item{p_random}{Proportion of the grid evaluated when \code{random_search} is
 \code{TRUE}. Default 0.5.}
 
-\item{nfolds}{Number of cross-validation folds. Default 5.}
+\item{nfolds}{Number of cross-validation folds, used by \code{lambda_mean}
+selection and by the \code{"cv_min"}, \code{"cv_1se"} and \code{"stability_cv"} rules.
+Default 5.}
 
 \item{symm_method}{Symmetrisation rule: \code{"OR"} (default) keeps an edge if
 it is selected in either node-wise regression, \code{"AND"} only if it is
@@ -123,6 +140,9 @@ selected in both.}
 Default \code{TRUE}.}
 
 \item{verbose}{Logical; print progress messages. Default \code{FALSE}.}
+
+\item{lambda_prec_type}{Deprecated; use \code{selection}. \code{"min"} and \code{"1se"}
+correspond to \code{selection = "cv_min"} and \code{"cv_1se"}.}
 
 \item{input}{Path of the input file written by \code{prcggm_slurm_prepare()}.}
 

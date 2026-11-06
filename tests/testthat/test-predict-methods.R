@@ -77,4 +77,28 @@ test_that("simulate_prcggm_data returns consistent objects", {
   expect_true(is.factor(sim$covariates$x1))
   expect_true(all(sim$prior >= 0 & sim$prior <= 1))
   expect_equal(sim$prior, t(sim$prior))
+  expect_true(all(diag(sim$truth_precision$Baseline) == sim$diagonal))
+  for (h in c("x1_1", "x2")) {
+    expect_true(all(diag(sim$truth_precision[[h]]) == 0))
+  }
+})
+
+test_that("simulate_prcggm_data builds the prior from the baseline target", {
+  set.seed(3)
+  sim <- simulate_prcggm_data(n = 100, p = 20, n_binary = 1,
+                              n_continuous = 1, prior = "perfect")
+  target <- sim$truth_precision$Baseline
+  ut <- upper.tri(target)
+  expect_equal(sim$prior[ut] == 1, abs(target[ut]) > 1e-8)
+  expect_true(all(sim$covariates$x2 >= 0 & sim$covariates$x2 <= 1))
+  # positive definite at the corners of the covariate range: the continuous
+  # component is returned per standard deviation of the covariate
+  b2 <- sim$truth_precision$x2 / sd(sim$covariates$x2)
+  base <- target - mean(sim$covariates$x2) * b2
+  for (u1 in 0:1) for (u2 in 0:1) {
+    omega <- base + u1 * sim$truth_precision$x1_1 + u2 * b2
+    expect_gt(min(eigen(omega, symmetric = TRUE)$values), 0.1 - 1e-8)
+  }
+  expect_warning(simulate_prcggm_data(n = 20, p = 5, power = 1), "deprecated")
+  expect_true(all(simulate_prcggm_data(n = 20, p = 5, prior = "none")$prior == 0))
 })

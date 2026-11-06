@@ -65,6 +65,7 @@ print.prcggm <- function(x, ...) {
       "\n")
   cat("  Prior knowledge:", if (x$settings$prior) "yes" else "no",
       " Symmetrisation:", x$settings$symm_method, "\n")
+  cat("  Selection:", selection_label(x$settings), "\n")
   cat("  Network components:", paste(names(x$networks), collapse = ", "),
       "\n")
   invisible(x)
@@ -101,8 +102,8 @@ print.prcggm <- function(x, ...) {
 #'     columns `component`, `edges`, `density` and `mean_abs_weight`.}
 #'   \item{`tuning`}{Contingency table of the selected `alpha` (rows) and
 #'     `theta` (columns) across nodes.}
-#'   \item{`fit`}{List with `n`, `p`, `q`, `prior` (logical) and
-#'     `symm_method`.}
+#'   \item{`fit`}{List with `n`, `p`, `q`, `prior` (logical),
+#'     `symm_method` and `selection` (the selection rule, with `refit`).}
 #' }
 #'
 #' @seealso [prcggm()], [plot.prcggm()], [predict.prcggm()].
@@ -131,7 +132,8 @@ summary.prcggm <- function(object, ...) {
     tuning = table(alpha = object$tuning$alpha, theta = object$tuning$theta),
     fit = list(n = object$n, p = object$p, q = object$q,
                prior = object$settings$prior,
-               symm_method = object$settings$symm_method)
+               symm_method = object$settings$symm_method,
+               selection = selection_label(object$settings))
   )
   class(out) <- "summary.prcggm"
   out
@@ -143,7 +145,11 @@ print.summary.prcggm <- function(x, ...) {
   cat("  Subjects:", x$fit$n, " Features:", x$fit$p,
       " Covariates:", x$fit$q, "\n")
   cat("  Prior knowledge:", if (x$fit$prior) "yes" else "no",
-      " Symmetrisation:", x$fit$symm_method, "\n\n")
+      " Symmetrisation:", x$fit$symm_method, "\n")
+  if (!is.null(x$fit$selection)) {
+    cat("  Selection:", x$fit$selection, "\n")
+  }
+  cat("\n")
   cat("Network components:\n")
   print(x$components, row.names = FALSE, digits = 3)
   cat("\nSelected (alpha, theta) across nodes:\n")
@@ -198,4 +204,22 @@ plot.prcggm <- function(x, component = "Baseline", newdata = NULL, ...) {
   }
   do.call(plot_network, c(list(network = network), args))
   invisible(x)
+}
+
+# Description of the selection rule of a fit. Fits made with version 0.1.0
+# have no `selection` setting: they used cross-validation without refit.
+selection_label <- function(settings) {
+  if (!is.null(settings$lambda_prec)) {
+    return(paste0("fixed lambda (", signif(settings$lambda_prec, 3), ")",
+                  if (isTRUE(settings$refit)) ", OLS refit" else ""))
+  }
+  selection <- settings$selection
+  refit <- settings$refit
+  if (is.null(selection)) {
+    selection <- paste0("cv_", if (is.null(settings$lambda_prec_type)) "min"
+                        else settings$lambda_prec_type)
+    refit <- FALSE
+  }
+  paste0(selection, if (isTRUE(refit) || grepl("^stability", selection))
+    ", OLS refit" else ", penalised coefficients")
 }

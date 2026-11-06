@@ -61,27 +61,35 @@ prcggm_slurm_prepare <- function(x,
                                  lambda_mean = NULL,
                                  lambda_mean_type = c("min", "1se"),
                                  lambda_prec = NULL,
-                                 lambda_prec_type = c("min", "1se"),
+                                 selection = c("ebic_relaxed", "bic_relaxed",
+                                               "bic", "ebic", "cv_min",
+                                               "cv_1se", "stability_bic",
+                                               "stability_cv"),
+                                 refit = TRUE,
+                                 selection_control = list(),
                                  tune = TRUE,
-                                 alpha_grid = c(0.75, 0.5, 0.9, 0.95),
-                                 theta_grid = c(1, 0.8, 1.1, 1.3, 1.5),
+                                 alpha_grid = c(0.75, 0.5, 0.9, 0.99),
+                                 theta_grid = c(1, 0.8, 1.1, 1.3),
                                  random_search = FALSE,
                                  p_random = 0.5,
                                  nfolds = 5,
                                  symm_method = c("OR", "AND"),
                                  copy_templates = TRUE,
-                                 verbose = FALSE) {
+                                 verbose = FALSE,
+                                 lambda_prec_type = NULL) {
   if (missing(dir) || !is.character(dir) || length(dir) != 1L) {
     stop("`dir` must be the path of a directory.", call. = FALSE)
   }
   call <- match.call()
+  selection <- resolve_selection(selection, lambda_prec_type,
+                                 missing(selection))
   prep <- prepare_fit(
     x = x, covariates = covariates, prior = prior, screening = screening,
     gamma = gamma, screening_matrix = screening_matrix,
     mean_estimation = mean_estimation, lambda_mean = lambda_mean,
     lambda_mean_type = match.arg(lambda_mean_type),
-    lambda_prec = lambda_prec,
-    lambda_prec_type = match.arg(lambda_prec_type),
+    lambda_prec = lambda_prec, selection = selection, refit = refit,
+    selection_control = selection_control,
     tune = tune, alpha_grid = alpha_grid, theta_grid = theta_grid,
     random_search = random_search, p_random = p_random, nfolds = nfolds,
     symm_method = match.arg(symm_method), verbose = verbose)

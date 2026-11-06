@@ -1,7 +1,7 @@
 Package: prCGGM
 Type: Package
 Title: Prior-Informed Conditional Gaussian Graphical Models
-Version: 0.1.0
+Version: 0.1.0.9000
 Authors@R: c(
     person("Alessia", "Mapelli", email = "alessia.mapelli@polimi.it",
            role = c("aut", "cre")),
@@ -18,9 +18,13 @@ Description: Estimates Gaussian graphical models whose mean and precision matrix
     penalty that is applied only to the
     population-level network, so that covariate-specific changes remain
     entirely data-driven. Node-wise regressions are fitted with 'glmnet' and
-    'sparsegl', structural hyperparameters are tuned per node by the Bayesian
-    information criterion, and personalised networks can be predicted for new
-    individuals from their covariates. Estimation runs sequentially, in
+    'sparsegl'; the penalty and the structural hyperparameters are selected
+    per node by the extended Bayesian information criterion of the
+    least-squares refit (or, optionally, by the Bayesian information
+    criterion, cross-validation or stability selection), the selected edges
+    are refitted by least squares, and
+    personalised networks can be predicted for new individuals from their
+    covariates. Estimation runs sequentially, in
     parallel on a single machine, or as 'SLURM' array jobs on computing
     clusters. The method is described in Mapelli et al. (2026)
     <doi:10.48550/arXiv.2606.31805>.

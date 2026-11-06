@@ -66,8 +66,10 @@ while the covariate-specific changes are learnt from the data alone. The
 penalty depends on three hyperparameters: $\lambda$ sets the overall
 sparsity, $\alpha$ balances element-wise and group sparsity, and
 $\vartheta$ sets the penalty on covariate-specific effects relative to the
-baseline (see [Hyperparameters](#hyperparameters)). The node-wise estimates
-are finally combined into symmetric networks. The full estimation procedure
+baseline (see [Hyperparameters](#hyperparameters)). By default the
+predictors selected for each node are then refitted by least squares, which
+removes the shrinkage of the edge weights without changing the selected
+edges. The node-wise estimates are finally combined into symmetric networks. The full estimation procedure
 is described in Mapelli et al. (2026).
 
 ```{r setup}
@@ -124,11 +126,35 @@ See the *Value* section of `?prcggm` for all the elements.
 
 ## Hyperparameters
 
-For each node, the overall penalty $\lambda$ is chosen by cross-validation (`lambda.min` by
-default; set `lambda_prec_type = "1se"` for sparser networks). The balance
-$\alpha$ between element-wise and group sparsity and the relative penalty
-$\vartheta$ on covariate-specific effects are chosen by minimising the node-wise BIC over `alpha_grid` and `theta_grid`. With
-`tune = FALSE` the first value of each grid is used.
+For each node, the overall penalty $\lambda$, the balance $\alpha$ between
+element-wise and group sparsity and the relative penalty $\vartheta$ on
+covariate-specific effects (over `alpha_grid` and `theta_grid`) are selected
+with the rule given by `selection`. With `tune = FALSE` the first value of
+each grid is used and only $\lambda$ is selected.
+
+| `selection` | $\lambda$ | $\alpha$, $\vartheta$ | Cost |
+|---|---|---|---|
+| `"ebic_relaxed"` (default) | minimum extended BIC of the least-squares refit along the $\lambda$ path | jointly with $\lambda$ | $\lambda$ paths only |
+| `"bic_relaxed"` | minimum BIC of the least-squares refit | jointly with $\lambda$ | $\lambda$ paths only |
+| `"bic"`, `"ebic"` | minimum BIC / extended BIC of the penalised fit | jointly with $\lambda$ | $\lambda$ paths only |
+| `"cv_min"`, `"cv_1se"` | cross-validation, `lambda.min` or `lambda.1se` | BIC at the selected $\lambda$ | paths and cross-validation |
+| `"stability_bic"`, `"stability_cv"` | stability selection | those of `"bic_relaxed"` or `"cv_min"` | paths and 50 subsamples (and cross-validation) |
+
+The node-wise BIC is $n \log(RSS_j / n) + \log(n)\, df_j$, where $df_j$ is the
+number of selected predictors. The extended BIC adds a penalty that grows
+with the number of candidate predictors and is more conservative when $p$ or
+$q$ is large. In the relaxed rules $RSS_j$ is that of the least-squares refit
+of the predictors selected at each $\lambda$; in `"bic"` and `"ebic"` it is
+that of the penalised fit, which the shrinkage inflates more and more as $n$
+grows, so that these rules select increasingly dense networks with large
+samples. Cross-validation with `lambda.min` (the rule of version 0.1.0) shows
+the same behaviour. Stability selection refits the $\lambda$ path on random
+half-samples and keeps the predictors that are selected consistently; it is
+accurate but much more expensive. In simulations, `"ebic_relaxed"` was as
+accurate as stability selection at a fraction of its cost, which motivated
+the default. The settings of the rules can
+be changed with `selection_control`, and `refit = FALSE` returns the
+penalised coefficients.
 
 ```{r tuning}
 set.seed(1)
@@ -140,9 +166,9 @@ fit$tuning
 For large grids, `random_search = TRUE` evaluates a random proportion
 `p_random` of the combinations at each node.
 
-The cross-validation folds (shared by all nodes and hyperparameter values)
-and the random-search subsets are drawn from the random number generator
-before any model is fitted, which is why `set.seed()` makes the results
+The cross-validation folds (shared by all nodes and hyperparameter values),
+the random-search subsets and the subsamples of stability selection are
+drawn from the random number generator before any model is fitted, which is why `set.seed()` makes the results
 reproducible, also when running in parallel.
 
 ## Inspecting the fit
@@ -186,7 +212,11 @@ plot_network_difference(nets$Subject_2, nets$Subject_1)
 
 `simulate_prcggm_data()` generates data from the model, with a scale-free
 baseline network, random covariate effects and a perfect, noisy or absent
-prior, which is useful to explore the method.
+prior, which is useful to explore the method. The precision matrix is
+positive definite for every subject by construction, and the true networks
+are returned on the scale of the estimates: the true baseline is the network
+at the mean of the continuous covariates and at the reference level of the
+binary ones, which is what `prcggm()` estimates.
 
 ```{r simulate}
 set.seed(2)

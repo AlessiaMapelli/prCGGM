@@ -19,8 +19,8 @@ An object of class \code{"summary.prcggm"}, a list with elements:
 columns \code{component}, \code{edges}, \code{density} and \code{mean_abs_weight}.}
 \item{\code{tuning}}{Contingency table of the selected \code{alpha} (rows) and
 \code{theta} (columns) across nodes.}
-\item{\code{fit}}{List with \code{n}, \code{p}, \code{q}, \code{prior} (logical) and
-\code{symm_method}.}
+\item{\code{fit}}{List with \code{n}, \code{p}, \code{q}, \code{prior} (logical),
+\code{symm_method} and \code{selection} (the selection rule, with \code{refit}).}
 }
 }
 \description{

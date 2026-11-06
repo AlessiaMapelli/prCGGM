@@ -9,13 +9,16 @@ simulate_prcggm_data(
   p = 10,
   n_binary = 1,
   n_continuous = 0,
-  edge_prob = 0.1,
+  edge_prob = NULL,
   coef_range = c(0.35, 0.5),
-  power = 2.5,
+  effect_range = c(0.175, 0.25),
+  exponent = 2.5,
   prior = c("perfect", "noisy", "none"),
   sensitivity = 0.8,
   specificity = 0.9,
-  confidence_range = c(0.7, 1)
+  confidence_range = c(0.7, 1),
+  eig_margin = 0.1,
+  power = NULL
 )
 }
 \arguments{
@@ -23,18 +26,23 @@ simulate_prcggm_data(
 
 \item{p}{Number of features (nodes).}
 
-\item{n_binary, n_continuous}{Number of binary (Bernoulli(0.5), returned as
-factors with levels \code{"0"} and \code{"1"}) and standard normal covariates.}
+\item{n_binary, n_continuous}{Number of binary (returned as factors with
+levels \code{"0"} and \code{"1"}) and continuous covariates.}
 
-\item{edge_prob}{Edge probability of the covariate-effect networks.}
+\item{edge_prob}{Edge probability of the covariate networks. If \code{NULL}
+(default), \eqn{1/(p - 1)}.}
 
 \item{coef_range}{Range of the absolute values of the non-zero
-off-diagonal entries; signs are random.}
+off-diagonal entries of the baseline network; signs are random.}
 
-\item{power}{Preferential attachment power of the baseline network.}
+\item{effect_range}{Range of the absolute values of the non-zero entries
+of the covariate networks; signs are random.}
 
-\item{prior}{Quality of the simulated prior: \code{"perfect"} (weight 1 on true
-baseline edges, 0 elsewhere), \code{"noisy"} (true edges kept with
+\item{exponent}{Exponent of the power-law degree distribution of the
+baseline network.}
+
+\item{prior}{Quality of the simulated prior: \code{"perfect"} (weight 1 on the
+edges of the true baseline, 0 elsewhere), \code{"noisy"} (true edges kept with
 probability \code{sensitivity}, false edges added with probability
 \code{1 - specificity}, with random confidence scores) or \code{"none"}.}
 
@@ -43,6 +51,12 @@ probability \code{sensitivity}, false edges added with probability
 \item{confidence_range}{Range of the confidence scores of true edges in
 the noisy prior; false edges get scores between 0.1 and
 \code{confidence_range[1] - 0.1}.}
+
+\item{eig_margin}{Minimum eigenvalue of the precision matrix over the
+covariate range.}
+
+\item{power}{Deprecated and ignored (preferential-attachment power of
+version 0.1.0); see \code{exponent}.}
 }
 \value{
 A list with elements:
@@ -51,16 +65,18 @@ A list with elements:
 data.}
 \item{\code{covariates}}{Data frame of the simulated covariates, named \code{x1},
 \code{x2}, ...: first the binary ones (factors), then the continuous ones.}
-\item{\code{prior}}{The \eqn{p \times p}{p x p} prior weight matrix.}
-\item{\code{truth_precision}}{Named list of the true precision components
-\eqn{\Delta_0, \Delta_1, \ldots}{Delta_0, Delta_1, ...}. Compare with
-the \code{precision} element of a fitted \code{\link[=prcggm]{prcggm()}} model.}
+\item{\code{prior}}{The \eqn{p \times p}{p x p} prior weight matrix (all zero
+for \code{prior = "none"}).}
+\item{\code{truth_precision}}{Named list of the true precision components on
+the scale of the \code{precision} element of a fitted \code{\link[=prcggm]{prcggm()}} model:
+\code{"Baseline"} (\eqn{T_0}, with diagonal \eqn{d}) and one component per
+covariate.}
 \item{\code{truth_networks}}{Named list of the true networks on the scale of
-the \code{networks} element of a fitted \code{\link[=prcggm]{prcggm()}} model, that is the
-partial correlations
-\eqn{-(\Delta_h)_{jk} / \sqrt{(\Delta_0)_{jj} (\Delta_0)_{kk}}}{-(Delta_h)_jk / sqrt((Delta_0)_jj (Delta_0)_kk)}
+the \code{networks} element of a fitted \code{\link[=prcggm]{prcggm()}} model, the node-wise
+regression coefficients \eqn{-(\Delta_h)_{jk} / d}{-(Delta_h)_jk / d},
 with zero diagonal. Their sign is opposite to that of the precision
 components.}
+\item{\code{diagonal}}{The common diagonal \eqn{d}.}
 }
 Both lists use the same names as the components of a fitted \code{\link[=prcggm]{prcggm()}}
 model (\code{"Baseline"}, \code{"x1_1"}, \code{"x2"}, ...), so that, for example,
@@ -69,10 +85,41 @@ model (\code{"Baseline"}, \code{"x1_1"}, \code{"x2"}, ...), so that, for example
 \description{
 Generates expression data whose precision matrix depends linearly on the
 covariates, \eqn{\Omega(x) = \Delta_0 + \sum_h x_h \Delta_h}, together with a
-prior weight matrix of the chosen quality. The baseline network
-\eqn{\Delta_0} is scale-free (preferential attachment) and each covariate
-effect \eqn{\Delta_h} is an Erdos-Renyi random graph, following the
-simulation design of Mapelli et al. (2026).
+prior weight matrix of the chosen quality, following the simulation design
+of Mapelli et al. (2026).
+}
+\details{
+\itemize{
+\item \strong{Baseline network} \eqn{\Delta_0}: \code{p} edges drawn from a fitness
+model (Goh et al., 2001), whose degree distribution follows a power law
+with exponent \code{exponent}; non-zero entries
+\eqn{\pm}{+-}U(\code{coef_range}).
+\item \strong{Covariate networks} \eqn{\Delta_h}, one per covariate: Erdos-Renyi
+graphs with edge probability \code{edge_prob} (by default \eqn{1/(p - 1)},
+about \eqn{p/2} edges); non-zero entries \eqn{\pm}{+-}U(\code{effect_range}) and
+zero diagonal.
+\item \strong{Diagonal}: one constant \eqn{d} for all nodes and all covariate values,
+the smallest that keeps the minimum eigenvalue of \eqn{\Omega(x)} at
+least \code{eig_margin} over the whole covariate range. Because
+\eqn{\Omega(x)} is linear in \eqn{x}, checking the \eqn{2^q} corners of
+the covariate range is enough, so \eqn{\Omega(x)} is positive definite for
+every subject. The conditional variances \eqn{1/d} do not depend on the
+covariates, so the node-wise regressions are exactly linear in the
+covariates, as assumed by \code{\link[=prcggm]{prcggm()}}.
+\item \strong{Covariates}: binary ones are Bernoulli(0.5), continuous ones
+Uniform(0, 1). Every covariate has an effect.
+}
+
+\strong{Target of the baseline.} \code{\link[=prcggm]{prcggm()}} standardises numeric covariates and
+codes factors against their first level, so its baseline network is the
+network of a subject with the continuous covariates at their mean and the
+binary ones at the reference level 0:
+\eqn{T_0 = \Delta_0 + \sum_{h \in continuous} \bar{x}_h \Delta_h}{T0 =
+Delta0 + sum over continuous h of mean(x_h) * Delta_h}. The true baseline
+returned in \code{truth_precision} and \code{truth_networks} is \eqn{T_0}, and the prior
+is generated from the edges of \eqn{T_0}. Likewise, the true effects of
+continuous covariates are returned per standard deviation of the covariate,
+\eqn{sd(x_h) \Delta_h}, the scale of the estimates of \code{\link[=prcggm]{prcggm()}}.
 }
 \examples{
 set.seed(1)
@@ -84,4 +131,9 @@ fit <- prcggm(sim$x, covariates = sim$covariates, prior = sim$prior,
               mean_estimation = FALSE, tune = FALSE)
 compare_networks(fit$networks$Baseline, sim$truth_networks$Baseline,
                  method = "correlation")
+}
+\references{
+Goh, K.-I., Kahng, B. and Kim, D. (2001). Universal behavior of load
+distribution in scale-free networks. \emph{Physical Review Letters}, 87(27),
+278701.
 }

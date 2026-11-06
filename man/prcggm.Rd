@@ -15,16 +15,20 @@ prcggm(
   lambda_mean = NULL,
   lambda_mean_type = c("min", "1se"),
   lambda_prec = NULL,
-  lambda_prec_type = c("min", "1se"),
+  selection = c("ebic_relaxed", "bic_relaxed", "bic", "ebic", "cv_min", "cv_1se",
+    "stability_bic", "stability_cv"),
+  refit = TRUE,
+  selection_control = list(),
   tune = TRUE,
-  alpha_grid = c(0.75, 0.5, 0.9, 0.95),
-  theta_grid = c(1, 0.8, 1.1, 1.3, 1.5),
+  alpha_grid = c(0.75, 0.5, 0.9, 0.99),
+  theta_grid = c(1, 0.8, 1.1, 1.3),
   random_search = FALSE,
   p_random = 0.5,
   nfolds = 5,
   symm_method = c("OR", "AND"),
   ncores = 1L,
-  verbose = FALSE
+  verbose = FALSE,
+  lambda_prec_type = NULL
 )
 }
 \arguments{
@@ -75,18 +79,29 @@ sparser models. Ignored if \code{lambda_mean} is supplied or if \eqn{q = 1},
 in which case the mean is estimated by least squares.}
 
 \item{lambda_prec}{Optional fixed penalty for the node-wise network
-regressions. If \code{NULL} (default), it is selected by cross-validation
-with \code{\link[sparsegl:cv.sparsegl]{sparsegl::cv.sparsegl()}} (or \code{\link[glmnet:cv.glmnet]{glmnet::cv.glmnet()}} when there are
-neither covariates nor prior).}
+regressions. If \code{NULL} (default), it is selected with the rule given by
+\code{selection}.}
 
-\item{lambda_prec_type}{Cross-validation rule used to select
-\code{lambda_prec}: \code{"min"} (default, \code{lambda.min}) or \code{"1se"}
-(\code{lambda.1se}), with the same meaning as for \code{lambda_mean_type}.
-Ignored if \code{lambda_prec} is supplied.}
+\item{selection}{Rule used to select the penalty of the node-wise network
+regressions and the hyperparameters: \code{"ebic_relaxed"} (default),
+\code{"bic_relaxed"}, \code{"bic"}, \code{"ebic"}, \code{"cv_min"}, \code{"cv_1se"},
+\code{"stability_bic"} or \code{"stability_cv"}. See \emph{Selection rules}.}
+
+\item{refit}{Logical; if \code{TRUE} (default), the predictors selected for
+each node are refitted by least squares, so that the edge weights are not
+shrunk. The selected edges do not change. Always \code{TRUE} for stability
+selection.}
+
+\item{selection_control}{List of settings of the selection rules, any of
+\code{ebic_gamma} (EBIC parameter, default 0.5), \code{stab_B} (number of
+subsamples, default 50), \code{stab_fraction} (subsample size as a fraction of
+\eqn{n}, default 0.5), \code{stab_pi} (selection-frequency threshold, default
+0.75) and \code{stab_pfer} (bound on the expected number of false selections
+per node, default 1).}
 
 \item{tune}{Logical; if \code{TRUE} (default) \eqn{\alpha}{alpha} and \eqn{\vartheta}{theta}
-are tuned by BIC over \code{alpha_grid} and \code{theta_grid}. If \code{FALSE}, the
-first value of each grid is used.}
+are selected over \code{alpha_grid} and \code{theta_grid} with the rule given by
+\code{selection}. If \code{FALSE}, the first value of each grid is used.}
 
 \item{alpha_grid}{Candidate values in [0, 1] for \eqn{\alpha}{alpha}, the balance
 between element-wise sparsity (\eqn{\alpha \to 1}{alpha -> 1}) and group sparsity
@@ -102,7 +117,9 @@ subset of the \eqn{\alpha}{alpha} and \eqn{\vartheta}{theta} hyperparameter grid
 \item{p_random}{Proportion of the grid evaluated when \code{random_search} is
 \code{TRUE}. Default 0.5.}
 
-\item{nfolds}{Number of cross-validation folds. Default 5.}
+\item{nfolds}{Number of cross-validation folds, used by \code{lambda_mean}
+selection and by the \code{"cv_min"}, \code{"cv_1se"} and \code{"stability_cv"} rules.
+Default 5.}
 
 \item{symm_method}{Symmetrisation rule: \code{"OR"} (default) keeps an edge if
 it is selected in either node-wise regression, \code{"AND"} only if it is
@@ -113,6 +130,9 @@ parallel with the \pkg{parallel} package. Default 1 (sequential). For
 very large networks see \code{\link[=prcggm_slurm_prepare]{prcggm_slurm_prepare()}}.}
 
 \item{verbose}{Logical; print progress messages. Default \code{FALSE}.}
+
+\item{lambda_prec_type}{Deprecated; use \code{selection}. \code{"min"} and \code{"1se"}
+correspond to \code{selection = "cv_min"} and \code{"cv_1se"}.}
 }
 \value{
 An object of class \code{"prcggm"}, a list with elements:
@@ -129,10 +149,15 @@ on the mean (intercept first), or \code{NULL} if \code{mean_estimation = FALSE}.
 \item{\code{residuals}}{Matrix of residuals from the mean step, used as input
 to the network step.}
 \item{\code{coefficients}}{Matrix of node-wise regression coefficients
-(one row per node) before symmetrisation.}
+(one row per node) before symmetrisation; refitted by least squares
+if \code{refit = TRUE}.}
+\item{\code{coefficients_penalised}}{The penalised coefficients of the
+selected models, or \code{NULL} for stability selection.}
 \item{\code{sigma2}}{Residual variance of each node-wise regression.}
-\item{\code{tuning}}{Data frame with, for each node, the selected \code{lambda},
-\code{alpha}, \code{theta}, the \code{bic} and the computing time in minutes.}
+\item{\code{tuning}}{Data frame with, for each node, the selected \code{lambda}
+(\code{NA} for stability selection), \code{alpha}, \code{theta}, the \code{bic} and the
+number of selected predictors \code{df} of the reported model, and the
+computing time in minutes.}
 \item{\code{covariates}}{Encoding information used by \code{\link[=predict.prcggm]{predict.prcggm()}}.}
 \item{\code{settings}}{List of the main estimation settings.}
 \item{\code{n}, \code{p}, \code{q}}{Number of subjects, features and encoded
@@ -165,12 +190,54 @@ penalty
 where \eqn{d_j^0} are the population-level (baseline) coefficients,
 \eqn{d_j^h} the coefficients modulated by covariate \eqn{h} and \eqn{W} the
 prior weight matrix. The prior therefore only affects the baseline network.
-The penalty \eqn{\lambda} is chosen by cross-validation, and the structural
-parameters \eqn{\alpha}{alpha} and \eqn{\vartheta}{theta} are chosen separately for each
-node by minimising the node-wise BIC
-\eqn{n \log(RSS_j / n) + \log(n) df_j}{n * log(RSS_j / n) + log(n) * df_j}.
-Node-wise estimates are finally combined into symmetric matrices with the
-"OR" or "AND" rule.
+For each node, the penalty \eqn{\lambda} and the structural parameters
+\eqn{\alpha}{alpha} and \eqn{\vartheta}{theta} are selected with the rule
+given by \code{selection} (see \emph{Selection rules}), and by default the selected
+predictors are refitted by least squares, which removes the shrinkage of
+the edge weights without changing the selected edges. Node-wise estimates
+are finally combined into symmetric matrices with the "OR" or "AND" rule.
+
+\strong{Selection rules.} With
+\eqn{BIC = n \log(RSS_j / n) + \log(n) df_j}{BIC = n * log(RSS_j / n) + log(n) * df_j},
+where \eqn{df_j} is the number of non-zero coefficients of node \eqn{j},
+and the extended BIC (Chen and Chen, 2008)
+\eqn{EBIC = BIC + 2 \gamma \log \binom{P}{df_j}}{EBIC = BIC + 2 * gamma *
+log(choose(P, df_j))}, where \eqn{P} is the number of predictors and
+\eqn{\gamma}{gamma} is \code{selection_control$ebic_gamma}:
+\describe{
+\item{\code{"ebic_relaxed"} (default)}{\eqn{\lambda}, \eqn{\alpha}{alpha}
+and \eqn{\vartheta}{theta} jointly minimise the EBIC over the
+\eqn{\lambda} path and the hyperparameter grid, with \eqn{RSS_j} the
+residual sum of squares of the least-squares refit of the predictors
+selected at each \eqn{\lambda} ("relaxed" criterion). No
+cross-validation is needed.}
+\item{\code{"bic_relaxed"}}{As \code{"ebic_relaxed"} with the BIC. Less
+conservative; it selects more edges when \eqn{P} is large relative to
+\eqn{n}.}
+\item{\code{"bic"}, \code{"ebic"}}{As the relaxed rules but with \eqn{RSS_j} of
+the penalised fit. The lasso shrinkage inflates this RSS by an amount
+that grows with \eqn{n}, so these rules choose ever smaller
+\eqn{\lambda} and select increasingly dense networks as \eqn{n}
+grows. Kept for comparison.}
+\item{\code{"cv_min"}, \code{"cv_1se"}}{\eqn{\lambda} by \code{nfolds}-fold
+cross-validation within each hyperparameter combination
+(\code{lambda.min} or \code{lambda.1se}), then the combination with the lowest
+BIC. \code{"cv_min"} is the rule of version 0.1.0; it selects
+increasingly dense networks as \eqn{n} grows.}
+\item{\code{"stability_bic"}, \code{"stability_cv"}}{Stability selection
+(Meinshausen and Buhlmann, 2010) at the hyperparameters chosen by
+\code{"bic_relaxed"} or \code{"cv_min"}: the \eqn{\lambda} path is refitted on
+\code{stab_B} random subsamples of size \code{stab_fraction} \eqn{\times n}
+(the same subsamples for all nodes), the path is restricted to the
+region where the average number of selected predictors is at most
+\eqn{\sqrt{PFER (2\pi - 1) P}}{sqrt(PFER * (2 * pi - 1) * P)}, and the
+predictors selected in a proportion of at least \eqn{\pi}{pi} of the
+subsamples somewhere in that region are kept. The selected predictors
+are always refitted. More accurate, especially for covariate effects,
+at a higher computational cost.}
+}
+If \code{lambda_prec} is supplied, \eqn{\lambda} is fixed and only the
+hyperparameters are selected, by BIC.
 
 Depending on the inputs, the same function fits a standard
 neighbourhood-selection GGM (no covariates, no prior), a prior-weighted GGM
@@ -185,8 +252,9 @@ reference, so the baseline network refers to the reference group; use
 of resulting columns is \eqn{q}.
 
 \strong{Reproducibility.} Cross-validation folds (shared by all nodes and
-hyperparameter values) and the random-search subsets are drawn from the
-current random number generator state before any model is fitted, so
+hyperparameter values), the random-search subsets and the subsamples of
+stability selection (shared by all nodes) are drawn from the current
+random number generator state before any model is fitted, so
 calling \code{\link[=set.seed]{set.seed()}} beforehand makes the fit reproducible, also when
 \code{ncores > 1}.
 }
@@ -201,7 +269,7 @@ fit
 summary(fit)
 
 \donttest{
-# Tune alpha and theta by BIC on a small grid
+# Tune alpha and theta on a small grid
 fit_tuned <- prcggm(prcggm_example$x,
                     covariates = prcggm_example$covariates,
                     prior = prcggm_example$prior,
@@ -214,6 +282,12 @@ Mapelli, A., Massi, M. C., Cuccuru, G., Di Angelantonio, E. and Ieva, F.
 (2026). Prior-informed conditional Gaussian graphical models: an
 application to protein interaction network reconstruction.
 arXiv:2606.31805. \doi{10.48550/arXiv.2606.31805}
+
+Chen, J. and Chen, Z. (2008). Extended Bayesian information criteria for
+model selection with large model spaces. \emph{Biometrika}, 95(3), 759--771.
+
+Meinshausen, N. and Buhlmann, P. (2010). Stability selection. \emph{Journal of
+the Royal Statistical Society: Series B}, 72(4), 417--473.
 
 Zhang, J. and Li, Y. (2023). High-dimensional Gaussian graphical
 regression models with covariates. \emph{Journal of the American Statistical

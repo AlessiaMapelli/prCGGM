@@ -23,12 +23,54 @@
 #' where \eqn{d_j^0} are the population-level (baseline) coefficients,
 #' \eqn{d_j^h} the coefficients modulated by covariate \eqn{h} and \eqn{W} the
 #' prior weight matrix. The prior therefore only affects the baseline network.
-#' The penalty \eqn{\lambda} is chosen by cross-validation, and the structural
-#' parameters \eqn{\alpha}{alpha} and \eqn{\vartheta}{theta} are chosen separately for each
-#' node by minimising the node-wise BIC
-#' \eqn{n \log(RSS_j / n) + \log(n) df_j}{n * log(RSS_j / n) + log(n) * df_j}.
-#' Node-wise estimates are finally combined into symmetric matrices with the
-#' "OR" or "AND" rule.
+#' For each node, the penalty \eqn{\lambda} and the structural parameters
+#' \eqn{\alpha}{alpha} and \eqn{\vartheta}{theta} are selected with the rule
+#' given by `selection` (see *Selection rules*), and by default the selected
+#' predictors are refitted by least squares, which removes the shrinkage of
+#' the edge weights without changing the selected edges. Node-wise estimates
+#' are finally combined into symmetric matrices with the "OR" or "AND" rule.
+#'
+#' **Selection rules.** With
+#' \eqn{BIC = n \log(RSS_j / n) + \log(n) df_j}{BIC = n * log(RSS_j / n) + log(n) * df_j},
+#' where \eqn{df_j} is the number of non-zero coefficients of node \eqn{j},
+#' and the extended BIC (Chen and Chen, 2008)
+#' \eqn{EBIC = BIC + 2 \gamma \log \binom{P}{df_j}}{EBIC = BIC + 2 * gamma *
+#' log(choose(P, df_j))}, where \eqn{P} is the number of predictors and
+#' \eqn{\gamma}{gamma} is `selection_control$ebic_gamma`:
+#' \describe{
+#'   \item{`"ebic_relaxed"` (default)}{\eqn{\lambda}, \eqn{\alpha}{alpha}
+#'     and \eqn{\vartheta}{theta} jointly minimise the EBIC over the
+#'     \eqn{\lambda} path and the hyperparameter grid, with \eqn{RSS_j} the
+#'     residual sum of squares of the least-squares refit of the predictors
+#'     selected at each \eqn{\lambda} ("relaxed" criterion). No
+#'     cross-validation is needed.}
+#'   \item{`"bic_relaxed"`}{As `"ebic_relaxed"` with the BIC. Less
+#'     conservative; it selects more edges when \eqn{P} is large relative to
+#'     \eqn{n}.}
+#'   \item{`"bic"`, `"ebic"`}{As the relaxed rules but with \eqn{RSS_j} of
+#'     the penalised fit. The lasso shrinkage inflates this RSS by an amount
+#'     that grows with \eqn{n}, so these rules choose ever smaller
+#'     \eqn{\lambda} and select increasingly dense networks as \eqn{n}
+#'     grows. Kept for comparison.}
+#'   \item{`"cv_min"`, `"cv_1se"`}{\eqn{\lambda} by `nfolds`-fold
+#'     cross-validation within each hyperparameter combination
+#'     (`lambda.min` or `lambda.1se`), then the combination with the lowest
+#'     BIC. `"cv_min"` is the rule of version 0.1.0; it selects
+#'     increasingly dense networks as \eqn{n} grows.}
+#'   \item{`"stability_bic"`, `"stability_cv"`}{Stability selection
+#'     (Meinshausen and Buhlmann, 2010) at the hyperparameters chosen by
+#'     `"bic_relaxed"` or `"cv_min"`: the \eqn{\lambda} path is refitted on
+#'     `stab_B` random subsamples of size `stab_fraction` \eqn{\times n}
+#'     (the same subsamples for all nodes), the path is restricted to the
+#'     region where the average number of selected predictors is at most
+#'     \eqn{\sqrt{PFER (2\pi - 1) P}}{sqrt(PFER * (2 * pi - 1) * P)}, and the
+#'     predictors selected in a proportion of at least \eqn{\pi}{pi} of the
+#'     subsamples somewhere in that region are kept. The selected predictors
+#'     are always refitted. More accurate, especially for covariate effects,
+#'     at a higher computational cost.}
+#' }
+#' If `lambda_prec` is supplied, \eqn{\lambda} is fixed and only the
+#' hyperparameters are selected, by BIC.
 #'
 #' Depending on the inputs, the same function fits a standard
 #' neighbourhood-selection GGM (no covariates, no prior), a prior-weighted GGM
@@ -43,8 +85,9 @@
 #' of resulting columns is \eqn{q}.
 #'
 #' **Reproducibility.** Cross-validation folds (shared by all nodes and
-#' hyperparameter values) and the random-search subsets are drawn from the
-#' current random number generator state before any model is fitted, so
+#' hyperparameter values), the random-search subsets and the subsamples of
+#' stability selection (shared by all nodes) are drawn from the current
+#' random number generator state before any model is fitted, so
 #' calling [set.seed()] beforehand makes the fit reproducible, also when
 #' `ncores > 1`.
 #'
@@ -86,16 +129,27 @@
 #'   sparser models. Ignored if `lambda_mean` is supplied or if \eqn{q = 1},
 #'   in which case the mean is estimated by least squares.
 #' @param lambda_prec Optional fixed penalty for the node-wise network
-#'   regressions. If `NULL` (default), it is selected by cross-validation
-#'   with [sparsegl::cv.sparsegl()] (or [glmnet::cv.glmnet()] when there are
-#'   neither covariates nor prior).
-#' @param lambda_prec_type Cross-validation rule used to select
-#'   `lambda_prec`: `"min"` (default, `lambda.min`) or `"1se"`
-#'   (`lambda.1se`), with the same meaning as for `lambda_mean_type`.
-#'   Ignored if `lambda_prec` is supplied.
+#'   regressions. If `NULL` (default), it is selected with the rule given by
+#'   `selection`.
+#' @param selection Rule used to select the penalty of the node-wise network
+#'   regressions and the hyperparameters: `"ebic_relaxed"` (default),
+#'   `"bic_relaxed"`, `"bic"`, `"ebic"`, `"cv_min"`, `"cv_1se"`,
+#'   `"stability_bic"` or `"stability_cv"`. See *Selection rules*.
+#' @param refit Logical; if `TRUE` (default), the predictors selected for
+#'   each node are refitted by least squares, so that the edge weights are not
+#'   shrunk. The selected edges do not change. Always `TRUE` for stability
+#'   selection.
+#' @param selection_control List of settings of the selection rules, any of
+#'   `ebic_gamma` (EBIC parameter, default 0.5), `stab_B` (number of
+#'   subsamples, default 50), `stab_fraction` (subsample size as a fraction of
+#'   \eqn{n}, default 0.5), `stab_pi` (selection-frequency threshold, default
+#'   0.75) and `stab_pfer` (bound on the expected number of false selections
+#'   per node, default 1).
+#' @param lambda_prec_type Deprecated; use `selection`. `"min"` and `"1se"`
+#'   correspond to `selection = "cv_min"` and `"cv_1se"`.
 #' @param tune Logical; if `TRUE` (default) \eqn{\alpha}{alpha} and \eqn{\vartheta}{theta}
-#'   are tuned by BIC over `alpha_grid` and `theta_grid`. If `FALSE`, the
-#'   first value of each grid is used.
+#'   are selected over `alpha_grid` and `theta_grid` with the rule given by
+#'   `selection`. If `FALSE`, the first value of each grid is used.
 #' @param alpha_grid Candidate values in \[0, 1\] for \eqn{\alpha}{alpha}, the balance
 #'   between element-wise sparsity (\eqn{\alpha \to 1}{alpha -> 1}) and group sparsity
 #'   (\eqn{\alpha \to 0}{alpha -> 0}).
@@ -106,7 +160,9 @@
 #'   `FALSE`.
 #' @param p_random Proportion of the grid evaluated when `random_search` is
 #'   `TRUE`. Default 0.5.
-#' @param nfolds Number of cross-validation folds. Default 5.
+#' @param nfolds Number of cross-validation folds, used by `lambda_mean`
+#'   selection and by the `"cv_min"`, `"cv_1se"` and `"stability_cv"` rules.
+#'   Default 5.
 #' @param symm_method Symmetrisation rule: `"OR"` (default) keeps an edge if
 #'   it is selected in either node-wise regression, `"AND"` only if it is
 #'   selected in both.
@@ -129,10 +185,15 @@
 #'   \item{`residuals`}{Matrix of residuals from the mean step, used as input
 #'     to the network step.}
 #'   \item{`coefficients`}{Matrix of node-wise regression coefficients
-#'     (one row per node) before symmetrisation.}
+#'     (one row per node) before symmetrisation; refitted by least squares
+#'     if `refit = TRUE`.}
+#'   \item{`coefficients_penalised`}{The penalised coefficients of the
+#'     selected models, or `NULL` for stability selection.}
 #'   \item{`sigma2`}{Residual variance of each node-wise regression.}
-#'   \item{`tuning`}{Data frame with, for each node, the selected `lambda`,
-#'     `alpha`, `theta`, the `bic` and the computing time in minutes.}
+#'   \item{`tuning`}{Data frame with, for each node, the selected `lambda`
+#'     (`NA` for stability selection), `alpha`, `theta`, the `bic` and the
+#'     number of selected predictors `df` of the reported model, and the
+#'     computing time in minutes.}
 #'   \item{`covariates`}{Encoding information used by [predict.prcggm()].}
 #'   \item{`settings`}{List of the main estimation settings.}
 #'   \item{`n`, `p`, `q`}{Number of subjects, features and encoded
@@ -145,6 +206,12 @@
 #' (2026). Prior-informed conditional Gaussian graphical models: an
 #' application to protein interaction network reconstruction.
 #' arXiv:2606.31805. \doi{10.48550/arXiv.2606.31805}
+#'
+#' Chen, J. and Chen, Z. (2008). Extended Bayesian information criteria for
+#' model selection with large model spaces. *Biometrika*, 95(3), 759--771.
+#'
+#' Meinshausen, N. and Buhlmann, P. (2010). Stability selection. *Journal of
+#' the Royal Statistical Society: Series B*, 72(4), 417--473.
 #'
 #' Zhang, J. and Li, Y. (2023). High-dimensional Gaussian graphical
 #' regression models with covariates. *Journal of the American Statistical
@@ -164,7 +231,7 @@
 #' summary(fit)
 #'
 #' \donttest{
-#' # Tune alpha and theta by BIC on a small grid
+#' # Tune alpha and theta on a small grid
 #' fit_tuned <- prcggm(prcggm_example$x,
 #'                     covariates = prcggm_example$covariates,
 #'                     prior = prcggm_example$prior,
@@ -182,25 +249,32 @@ prcggm <- function(x,
                    lambda_mean = NULL,
                    lambda_mean_type = c("min", "1se"),
                    lambda_prec = NULL,
-                   lambda_prec_type = c("min", "1se"),
+                   selection = c("ebic_relaxed", "bic_relaxed", "bic", "ebic",
+                                 "cv_min", "cv_1se", "stability_bic",
+                                 "stability_cv"),
+                   refit = TRUE,
+                   selection_control = list(),
                    tune = TRUE,
-                   alpha_grid = c(0.75, 0.5, 0.9, 0.95),
-                   theta_grid = c(1, 0.8, 1.1, 1.3, 1.5),
+                   alpha_grid = c(0.75, 0.5, 0.9, 0.99),
+                   theta_grid = c(1, 0.8, 1.1, 1.3),
                    random_search = FALSE,
                    p_random = 0.5,
                    nfolds = 5,
                    symm_method = c("OR", "AND"),
                    ncores = 1L,
-                   verbose = FALSE) {
+                   verbose = FALSE,
+                   lambda_prec_type = NULL) {
   call <- match.call()
   ncores <- check_number(ncores, "ncores", lower = 1, null_ok = FALSE)
+  selection <- resolve_selection(selection, lambda_prec_type,
+                                 missing(selection))
   prep <- prepare_fit(
     x = x, covariates = covariates, prior = prior, screening = screening,
     gamma = gamma, screening_matrix = screening_matrix,
     mean_estimation = mean_estimation, lambda_mean = lambda_mean,
     lambda_mean_type = match.arg(lambda_mean_type),
-    lambda_prec = lambda_prec,
-    lambda_prec_type = match.arg(lambda_prec_type),
+    lambda_prec = lambda_prec, selection = selection, refit = refit,
+    selection_control = selection_control,
     tune = tune, alpha_grid = alpha_grid, theta_grid = theta_grid,
     random_search = random_search, p_random = p_random, nfolds = nfolds,
     symm_method = match.arg(symm_method), verbose = verbose)
@@ -214,7 +288,8 @@ prcggm <- function(x,
 # node-wise regressions need.
 prepare_fit <- function(x, covariates, prior, screening, gamma,
                         screening_matrix, mean_estimation, lambda_mean,
-                        lambda_mean_type, lambda_prec, lambda_prec_type, tune,
+                        lambda_mean_type, lambda_prec, selection, refit,
+                        selection_control, tune,
                         alpha_grid, theta_grid, random_search, p_random,
                         nfolds, symm_method, verbose) {
   x <- check_expression(x)
@@ -225,6 +300,8 @@ prepare_fit <- function(x, covariates, prior, screening, gamma,
   screening <- check_flag(screening, "screening")
   mean_estimation <- check_flag(mean_estimation, "mean_estimation")
   tune <- check_flag(tune, "tune")
+  refit <- check_flag(refit, "refit")
+  selection_control <- check_selection_control(selection_control)
   random_search <- check_flag(random_search, "random_search")
   verbose <- check_flag(verbose, "verbose")
   gamma <- check_number(gamma, "gamma", lower = 0, upper = 1)
@@ -262,6 +339,14 @@ prepare_fit <- function(x, covariates, prior, screening, gamma,
       grid
     }
   })
+  # Subsamples of stability selection, shared by all nodes
+  subsamples <- NULL
+  if (is.null(lambda_prec) &&
+      selection %in% c("stability_bic", "stability_cv")) {
+    size <- max(2L, floor(selection_control$stab_fraction * n))
+    subsamples <- t(vapply(seq_len(selection_control$stab_B),
+                           function(b) sample.int(n, size), integer(size)))
+  }
 
   if (mean_estimation) {
     mean_fit <- fit_mean(x, U, lambda_mean, lambda_mean_type, foldid,
@@ -303,13 +388,15 @@ prepare_fit <- function(x, covariates, prior, screening, gamma,
     z = z, U = U, covariate_info = enc$info,
     mean_effects = mean_effects,
     penalty = if (is.null(prior)) NULL else 1 - prior,
-    keep = keep, foldid = foldid, combos = combos,
-    lambda_prec = lambda_prec, lambda_prec_type = lambda_prec_type,
+    keep = keep, foldid = foldid, combos = combos, subsamples = subsamples,
+    lambda_prec = lambda_prec, selection = selection, refit = refit,
+    selection_control = selection_control,
     settings = list(
       prior = !is.null(prior), screening = screening, gamma = gamma,
       mean_estimation = mean_estimation, lambda_mean = lambda_mean,
       lambda_mean_type = lambda_mean_type, lambda_prec = lambda_prec,
-      lambda_prec_type = lambda_prec_type, tune = tune,
+      selection = selection, refit = refit,
+      selection_control = selection_control, tune = tune,
       alpha_grid = alpha_grid, theta_grid = theta_grid,
       random_search = random_search, p_random = p_random, nfolds = nfolds,
       symm_method = symm_method),
@@ -344,6 +431,13 @@ assemble_fit <- function(prep, results) {
     "(Intercept)", nodes,
     unlist(lapply(components[-1], function(h) paste0(h, ":", nodes))))
   rownames(coefficients) <- nodes
+  coefficients_penalised <- NULL
+  if (!any(vapply(results, function(r) is.null(r$coef_row_penalised),
+                  logical(1)))) {
+    coefficients_penalised <- do.call(rbind, lapply(results, `[[`,
+                                                    "coef_row_penalised"))
+    dimnames(coefficients_penalised) <- dimnames(coefficients)
+  }
   sigma2 <- stats::setNames(vapply(results, `[[`, numeric(1), "sigma2"),
                             nodes)
   networks <- list()
@@ -369,6 +463,7 @@ assemble_fit <- function(prep, results) {
       mean_effects = prep$mean_effects,
       residuals = prep$z,
       coefficients = coefficients,
+      coefficients_penalised = coefficients_penalised,
       sigma2 = sigma2,
       tuning = tuning,
       covariates = prep$covariate_info,
@@ -378,4 +473,44 @@ assemble_fit <- function(prep, results) {
     ),
     class = "prcggm"
   )
+}
+
+# Selection rule from `selection` and the deprecated `lambda_prec_type`.
+resolve_selection <- function(selection, lambda_prec_type, default_used) {
+  rules <- c("ebic_relaxed", "bic_relaxed", "bic", "ebic", "cv_min", "cv_1se",
+             "stability_bic", "stability_cv")
+  if (!is.null(lambda_prec_type)) {
+    lambda_prec_type <- match.arg(lambda_prec_type, c("min", "1se"))
+    warning("`lambda_prec_type` is deprecated; use `selection = \"cv_",
+            lambda_prec_type, "\"`.", call. = FALSE)
+    if (default_used) {
+      return(paste0("cv_", lambda_prec_type))
+    }
+  }
+  match.arg(selection[1], rules)
+}
+
+check_selection_control <- function(control) {
+  if (!is.list(control)) {
+    stop("`selection_control` must be a list.", call. = FALSE)
+  }
+  defaults <- selection_defaults()
+  unknown <- setdiff(names(control), names(defaults))
+  if (length(unknown) > 0L) {
+    stop("Unknown element(s) of `selection_control`: ",
+         paste(unknown, collapse = ", "), ".", call. = FALSE)
+  }
+  control <- utils::modifyList(defaults, control)
+  check_number(control$ebic_gamma, "selection_control$ebic_gamma",
+               lower = 0, null_ok = FALSE)
+  check_number(control$stab_B, "selection_control$stab_B", lower = 1,
+               null_ok = FALSE)
+  check_number(control$stab_fraction, "selection_control$stab_fraction",
+               lower = 0.1, upper = 0.9, null_ok = FALSE)
+  check_number(control$stab_pi, "selection_control$stab_pi", lower = 0.5,
+               upper = 1, null_ok = FALSE)
+  check_number(control$stab_pfer, "selection_control$stab_pfer", lower = 0,
+               null_ok = FALSE)
+  control$stab_B <- as.integer(control$stab_B)
+  control
 }
