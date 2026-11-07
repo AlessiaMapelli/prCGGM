@@ -134,8 +134,8 @@ each grid is used and only $\lambda$ is selected.
 
 | `selection` | $\lambda$ | $\alpha$, $\vartheta$ | Cost |
 |---|---|---|---|
-| `"ebic_relaxed"` (default) | minimum extended BIC of the least-squares refit along the $\lambda$ path | jointly with $\lambda$ | $\lambda$ paths only |
-| `"bic_relaxed"` | minimum BIC of the least-squares refit | jointly with $\lambda$ | $\lambda$ paths only |
+| `"bic_relaxed"` (default) | minimum BIC of the least-squares refit along the $\lambda$ path | jointly with $\lambda$ | $\lambda$ paths only |
+| `"ebic_relaxed"` | minimum extended BIC of the least-squares refit | jointly with $\lambda$ | $\lambda$ paths only |
 | `"bic"`, `"ebic"` | minimum BIC / extended BIC of the penalised fit | jointly with $\lambda$ | $\lambda$ paths only |
 | `"cv_min"`, `"cv_1se"` | cross-validation, `lambda.min` or `lambda.1se` | BIC at the selected $\lambda$ | paths and cross-validation |
 | `"stability_bic"`, `"stability_cv"` | stability selection | those of `"bic_relaxed"` or `"cv_min"` | paths and 50 subsamples (and cross-validation) |
@@ -150,9 +150,17 @@ grows, so that these rules select increasingly dense networks with large
 samples. Cross-validation with `lambda.min` (the rule of version 0.1.0) shows
 the same behaviour. Stability selection refits the $\lambda$ path on random
 half-samples and keeps the predictors that are selected consistently; it is
-accurate but much more expensive. In simulations, `"ebic_relaxed"` was as
-accurate as stability selection at a fraction of its cost, which motivated
-the default. The settings of the rules can
+accurate but much more expensive.
+
+The node-wise estimates are combined with `symm_method`: `"AND"` (default)
+keeps an edge only if it is selected in both regressions, `"OR"` if it is
+selected in either. In the simulations of the paper the relaxed rules were
+more accurate than stability selection at a fraction of its cost.
+`"bic_relaxed"` with `"AND"` (the default) was the most accurate combination
+for $n \ge 5000$, in particular for binary covariate effects, while
+`"ebic_relaxed"` with `"OR"` was preferable for small samples
+($n \approx 1000$), where the BIC selects more false edges in single
+regressions. The settings of the rules can
 be changed with `selection_control`, and `refit = FALSE` returns the
 penalised coefficients.
 

@@ -81,12 +81,13 @@ test_that("a fixed lambda can be supplied", {
   expect_true(all(abs(fit$tuning$lambda - 0.01) <= 0.0001 + 1e-12))
 })
 
-test_that("relaxed EBIC with refit is the default and the refit keeps the support", {
+test_that("relaxed BIC, AND and refit are the defaults and the refit keeps the support", {
   d <- small_data()
   set.seed(1)
   fit <- prcggm(d$x, covariates = d$covariates, prior = d$prior,
                 tune = FALSE)
-  expect_equal(fit$settings$selection, "ebic_relaxed")
+  expect_equal(fit$settings$selection, "bic_relaxed")
+  expect_equal(fit$settings$symm_method, "AND")
   expect_true(fit$settings$refit)
   expect_equal(fit$coefficients != 0, fit$coefficients_penalised != 0)
   set.seed(1)

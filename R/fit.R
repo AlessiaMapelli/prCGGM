@@ -38,15 +38,20 @@
 #' log(choose(P, df_j))}, where \eqn{P} is the number of predictors and
 #' \eqn{\gamma}{gamma} is `selection_control$ebic_gamma`:
 #' \describe{
-#'   \item{`"ebic_relaxed"` (default)}{\eqn{\lambda}, \eqn{\alpha}{alpha}
-#'     and \eqn{\vartheta}{theta} jointly minimise the EBIC over the
+#'   \item{`"bic_relaxed"` (default)}{\eqn{\lambda}, \eqn{\alpha}{alpha}
+#'     and \eqn{\vartheta}{theta} jointly minimise the BIC over the
 #'     \eqn{\lambda} path and the hyperparameter grid, with \eqn{RSS_j} the
 #'     residual sum of squares of the least-squares refit of the predictors
 #'     selected at each \eqn{\lambda} ("relaxed" criterion). No
-#'     cross-validation is needed.}
-#'   \item{`"bic_relaxed"`}{As `"ebic_relaxed"` with the BIC. Less
-#'     conservative; it selects more edges when \eqn{P} is large relative to
-#'     \eqn{n}.}
+#'     cross-validation is needed. Recommended with `symm_method = "AND"`
+#'     (the default), which removes the edges it over-selects in single
+#'     node-wise regressions; this combination is the most accurate for
+#'     \eqn{n \ge 5000}{n >= 5000} in the paper's simulations, in particular
+#'     for binary covariate effects.}
+#'   \item{`"ebic_relaxed"`}{As `"bic_relaxed"` with the EBIC. More
+#'     conservative; recommended with `symm_method = "OR"`, the most accurate
+#'     combination for small samples (\eqn{n \approx 1000}{n ~ 1000}) and for
+#'     continuous covariate effects at moderate \eqn{n}.}
 #'   \item{`"bic"`, `"ebic"`}{As the relaxed rules but with \eqn{RSS_j} of
 #'     the penalised fit. The lasso shrinkage inflates this RSS by an amount
 #'     that grows with \eqn{n}, so these rules choose ever smaller
@@ -132,8 +137,8 @@
 #'   regressions. If `NULL` (default), it is selected with the rule given by
 #'   `selection`.
 #' @param selection Rule used to select the penalty of the node-wise network
-#'   regressions and the hyperparameters: `"ebic_relaxed"` (default),
-#'   `"bic_relaxed"`, `"bic"`, `"ebic"`, `"cv_min"`, `"cv_1se"`,
+#'   regressions and the hyperparameters: `"bic_relaxed"` (default),
+#'   `"ebic_relaxed"`, `"bic"`, `"ebic"`, `"cv_min"`, `"cv_1se"`,
 #'   `"stability_bic"` or `"stability_cv"`. See *Selection rules*.
 #' @param refit Logical; if `TRUE` (default), the predictors selected for
 #'   each node are refitted by least squares, so that the edge weights are not
@@ -163,9 +168,10 @@
 #' @param nfolds Number of cross-validation folds, used by `lambda_mean`
 #'   selection and by the `"cv_min"`, `"cv_1se"` and `"stability_cv"` rules.
 #'   Default 5.
-#' @param symm_method Symmetrisation rule: `"OR"` (default) keeps an edge if
-#'   it is selected in either node-wise regression, `"AND"` only if it is
-#'   selected in both.
+#' @param symm_method Symmetrisation rule: `"AND"` (default) keeps an edge
+#'   only if it is selected in both node-wise regressions, `"OR"` if it is
+#'   selected in either. `"AND"` is recommended with `"bic_relaxed"`, `"OR"`
+#'   with `"ebic_relaxed"` (see *Selection rules*).
 #' @param ncores Number of cores used to fit the node-wise regressions in
 #'   parallel with the \pkg{parallel} package. Default 1 (sequential). For
 #'   very large networks see [prcggm_slurm_prepare()].
@@ -249,7 +255,7 @@ prcggm <- function(x,
                    lambda_mean = NULL,
                    lambda_mean_type = c("min", "1se"),
                    lambda_prec = NULL,
-                   selection = c("ebic_relaxed", "bic_relaxed", "bic", "ebic",
+                   selection = c("bic_relaxed", "ebic_relaxed", "bic", "ebic",
                                  "cv_min", "cv_1se", "stability_bic",
                                  "stability_cv"),
                    refit = TRUE,
@@ -260,7 +266,7 @@ prcggm <- function(x,
                    random_search = FALSE,
                    p_random = 0.5,
                    nfolds = 5,
-                   symm_method = c("OR", "AND"),
+                   symm_method = c("AND", "OR"),
                    ncores = 1L,
                    verbose = FALSE,
                    lambda_prec_type = NULL) {
@@ -477,7 +483,7 @@ assemble_fit <- function(prep, results) {
 
 # Selection rule from `selection` and the deprecated `lambda_prec_type`.
 resolve_selection <- function(selection, lambda_prec_type, default_used) {
-  rules <- c("ebic_relaxed", "bic_relaxed", "bic", "ebic", "cv_min", "cv_1se",
+  rules <- c("bic_relaxed", "ebic_relaxed", "bic", "ebic", "cv_min", "cv_1se",
              "stability_bic", "stability_cv")
   if (!is.null(lambda_prec_type)) {
     lambda_prec_type <- match.arg(lambda_prec_type, c("min", "1se"))

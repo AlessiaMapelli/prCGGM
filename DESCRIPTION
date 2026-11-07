@@ -19,9 +19,9 @@ Description: Estimates Gaussian graphical models whose mean and precision matrix
     population-level network, so that covariate-specific changes remain
     entirely data-driven. Node-wise regressions are fitted with 'glmnet' and
     'sparsegl'; the penalty and the structural hyperparameters are selected
-    per node by the extended Bayesian information criterion of the
-    least-squares refit (or, optionally, by the Bayesian information
-    criterion, cross-validation or stability selection), the selected edges
+    per node by the Bayesian information criterion of the least-squares
+    refit (or, optionally, by its extended version, cross-validation or
+    stability selection), the selected edges
     are refitted by least squares, and
     personalised networks can be predicted for new individuals from their
     covariates. Estimation runs sequentially, in

@@ -18,7 +18,7 @@ prcggm_slurm_prepare(
   lambda_mean = NULL,
   lambda_mean_type = c("min", "1se"),
   lambda_prec = NULL,
-  selection = c("ebic_relaxed", "bic_relaxed", "bic", "ebic", "cv_min", "cv_1se",
+  selection = c("bic_relaxed", "ebic_relaxed", "bic", "ebic", "cv_min", "cv_1se",
     "stability_bic", "stability_cv"),
   refit = TRUE,
   selection_control = list(),
@@ -28,7 +28,7 @@ prcggm_slurm_prepare(
   random_search = FALSE,
   p_random = 0.5,
   nfolds = 5,
-  symm_method = c("OR", "AND"),
+  symm_method = c("AND", "OR"),
   copy_templates = TRUE,
   verbose = FALSE,
   lambda_prec_type = NULL
@@ -94,8 +94,8 @@ regressions. If \code{NULL} (default), it is selected with the rule given by
 \code{selection}.}
 
 \item{selection}{Rule used to select the penalty of the node-wise network
-regressions and the hyperparameters: \code{"ebic_relaxed"} (default),
-\code{"bic_relaxed"}, \code{"bic"}, \code{"ebic"}, \code{"cv_min"}, \code{"cv_1se"},
+regressions and the hyperparameters: \code{"bic_relaxed"} (default),
+\code{"ebic_relaxed"}, \code{"bic"}, \code{"ebic"}, \code{"cv_min"}, \code{"cv_1se"},
 \code{"stability_bic"} or \code{"stability_cv"}. See \emph{Selection rules}.}
 
 \item{refit}{Logical; if \code{TRUE} (default), the predictors selected for
@@ -132,9 +132,10 @@ subset of the \eqn{\alpha}{alpha} and \eqn{\vartheta}{theta} hyperparameter grid
 selection and by the \code{"cv_min"}, \code{"cv_1se"} and \code{"stability_cv"} rules.
 Default 5.}
 
-\item{symm_method}{Symmetrisation rule: \code{"OR"} (default) keeps an edge if
-it is selected in either node-wise regression, \code{"AND"} only if it is
-selected in both.}
+\item{symm_method}{Symmetrisation rule: \code{"AND"} (default) keeps an edge
+only if it is selected in both node-wise regressions, \code{"OR"} if it is
+selected in either. \code{"AND"} is recommended with \code{"bic_relaxed"}, \code{"OR"}
+with \code{"ebic_relaxed"} (see \emph{Selection rules}).}
 
 \item{copy_templates}{Logical; copy the template job scripts to \code{dir}.
 Default \code{TRUE}.}

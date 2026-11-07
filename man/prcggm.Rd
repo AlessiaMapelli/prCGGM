@@ -15,7 +15,7 @@ prcggm(
   lambda_mean = NULL,
   lambda_mean_type = c("min", "1se"),
   lambda_prec = NULL,
-  selection = c("ebic_relaxed", "bic_relaxed", "bic", "ebic", "cv_min", "cv_1se",
+  selection = c("bic_relaxed", "ebic_relaxed", "bic", "ebic", "cv_min", "cv_1se",
     "stability_bic", "stability_cv"),
   refit = TRUE,
   selection_control = list(),
@@ -25,7 +25,7 @@ prcggm(
   random_search = FALSE,
   p_random = 0.5,
   nfolds = 5,
-  symm_method = c("OR", "AND"),
+  symm_method = c("AND", "OR"),
   ncores = 1L,
   verbose = FALSE,
   lambda_prec_type = NULL
@@ -83,8 +83,8 @@ regressions. If \code{NULL} (default), it is selected with the rule given by
 \code{selection}.}
 
 \item{selection}{Rule used to select the penalty of the node-wise network
-regressions and the hyperparameters: \code{"ebic_relaxed"} (default),
-\code{"bic_relaxed"}, \code{"bic"}, \code{"ebic"}, \code{"cv_min"}, \code{"cv_1se"},
+regressions and the hyperparameters: \code{"bic_relaxed"} (default),
+\code{"ebic_relaxed"}, \code{"bic"}, \code{"ebic"}, \code{"cv_min"}, \code{"cv_1se"},
 \code{"stability_bic"} or \code{"stability_cv"}. See \emph{Selection rules}.}
 
 \item{refit}{Logical; if \code{TRUE} (default), the predictors selected for
@@ -121,9 +121,10 @@ subset of the \eqn{\alpha}{alpha} and \eqn{\vartheta}{theta} hyperparameter grid
 selection and by the \code{"cv_min"}, \code{"cv_1se"} and \code{"stability_cv"} rules.
 Default 5.}
 
-\item{symm_method}{Symmetrisation rule: \code{"OR"} (default) keeps an edge if
-it is selected in either node-wise regression, \code{"AND"} only if it is
-selected in both.}
+\item{symm_method}{Symmetrisation rule: \code{"AND"} (default) keeps an edge
+only if it is selected in both node-wise regressions, \code{"OR"} if it is
+selected in either. \code{"AND"} is recommended with \code{"bic_relaxed"}, \code{"OR"}
+with \code{"ebic_relaxed"} (see \emph{Selection rules}).}
 
 \item{ncores}{Number of cores used to fit the node-wise regressions in
 parallel with the \pkg{parallel} package. Default 1 (sequential). For
@@ -205,15 +206,20 @@ and the extended BIC (Chen and Chen, 2008)
 log(choose(P, df_j))}, where \eqn{P} is the number of predictors and
 \eqn{\gamma}{gamma} is \code{selection_control$ebic_gamma}:
 \describe{
-\item{\code{"ebic_relaxed"} (default)}{\eqn{\lambda}, \eqn{\alpha}{alpha}
-and \eqn{\vartheta}{theta} jointly minimise the EBIC over the
+\item{\code{"bic_relaxed"} (default)}{\eqn{\lambda}, \eqn{\alpha}{alpha}
+and \eqn{\vartheta}{theta} jointly minimise the BIC over the
 \eqn{\lambda} path and the hyperparameter grid, with \eqn{RSS_j} the
 residual sum of squares of the least-squares refit of the predictors
 selected at each \eqn{\lambda} ("relaxed" criterion). No
-cross-validation is needed.}
-\item{\code{"bic_relaxed"}}{As \code{"ebic_relaxed"} with the BIC. Less
-conservative; it selects more edges when \eqn{P} is large relative to
-\eqn{n}.}
+cross-validation is needed. Recommended with \code{symm_method = "AND"}
+(the default), which removes the edges it over-selects in single
+node-wise regressions; this combination is the most accurate for
+\eqn{n \ge 5000}{n >= 5000} in the paper's simulations, in particular
+for binary covariate effects.}
+\item{\code{"ebic_relaxed"}}{As \code{"bic_relaxed"} with the EBIC. More
+conservative; recommended with \code{symm_method = "OR"}, the most accurate
+combination for small samples (\eqn{n \approx 1000}{n ~ 1000}) and for
+continuous covariate effects at moderate \eqn{n}.}
 \item{\code{"bic"}, \code{"ebic"}}{As the relaxed rules but with \eqn{RSS_j} of
 the penalised fit. The lasso shrinkage inflates this RSS by an amount
 that grows with \eqn{n}, so these rules choose ever smaller

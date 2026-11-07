@@ -4,7 +4,7 @@
 
 * `prcggm()` and `prcggm_slurm_prepare()` gain a `selection` argument with
   eight rules for the penalty of the node-wise network regressions:
-  `"ebic_relaxed"` (new default) and `"bic_relaxed"` (extended BIC / BIC of
+  `"bic_relaxed"` (new default) and `"ebic_relaxed"` (BIC / extended BIC of
   the least-squares refit of the predictors selected along the lambda path,
   jointly with `alpha` and `theta`, no cross-validation), `"bic"` and
   `"ebic"` (the same criteria on the penalised fit), `"cv_min"` and
@@ -23,11 +23,16 @@
 ## Breaking changes
 
 * The default selection rule changes from cross-validation with
-  `lambda.min` without refit to the relaxed extended BIC with refit, so
-  default fits are sparser. In simulations, `lambda.min`, and BIC computed
-  on the penalised fit, selected increasingly dense networks as the sample
-  size grew. Use `selection = "cv_min", refit = FALSE` to reproduce
-  version 0.1.0.
+  `lambda.min` without refit to the relaxed BIC with refit, so default
+  fits are sparser. In simulations, `lambda.min`, and BIC computed on the
+  penalised fit, selected increasingly dense networks as the sample size
+  grew. Use `selection = "cv_min", refit = FALSE, symm_method = "OR"` to
+  reproduce version 0.1.0.
+* The default symmetrisation is now `symm_method = "AND"` (was `"OR"`). In
+  the simulations of the paper, the relaxed BIC with `"AND"` was the most
+  accurate combination for n >= 5000, in particular for binary covariate
+  effects; the relaxed extended BIC with `"OR"` is preferable for small
+  samples (n around 1000).
 * The default hyperparameter grids are now `alpha_grid = c(0.75, 0.5, 0.9,
   0.99)` and `theta_grid = c(1, 0.8, 1.1, 1.3)` (were `c(0.75, 0.5, 0.9,
   0.95)` and `c(1, 0.8, 1.1, 1.3, 1.5)`), the grid evaluated in the

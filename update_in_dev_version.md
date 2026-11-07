@@ -8,7 +8,7 @@ This file tracks every change made since version 0.1.0:
 - **Build:** this file is excluded from the build (`.Rbuildignore`).
 - **Companion file:** the paper repository has its own tracking file, `Complete_projects/Prior-informed-conditional-GGMs/update_in_dev_version.md`. The package and the template `ggReg_main_functions.R` implement the same estimator and are checked against each other.
 
-Last updated: 2026-11-06.
+Last updated: 2026-11-07. The changes of 2026-11-07 (3b) are committed on `v.0.2`.
 
 ---
 
@@ -18,7 +18,8 @@ Last updated: 2026-11-06.
 |---|---|---|---|
 | 1 | Selection rules for λ and the hyperparameters | `R/fit.R`, `R/node_estimation.R`, `R/slurm.R` | default changes |
 | 2 | OLS refit of the selected predictors | `R/fit.R`, `R/node_estimation.R` | default changes |
-| 3 | Relaxed BIC / EBIC, new default `"ebic_relaxed"` | `R/node_estimation.R`, `R/fit.R`, `R/slurm.R` | default changes |
+| 3 | Relaxed BIC / EBIC | `R/node_estimation.R`, `R/fit.R`, `R/slurm.R` | default changes |
+| 3b | Final defaults `selection = "bic_relaxed"`, `symm_method = "AND"` | `R/fit.R`, `R/slurm.R`, tests, docs | default changes |
 | 4 | Lasso without covariates fitted by `sparsegl` | `R/node_estimation.R` | yes, slightly |
 | 5 | `print()` / `summary()` report the selection rule | `R/methods.R` | no |
 | 6 | `simulate_prcggm_data()` follows the paper's design | `R/simulate.R` | yes |
@@ -34,8 +35,8 @@ Last updated: 2026-11-06.
 
   | Rule | λ | α, ϑ | Extra cost |
   |---|---|---|---|
-  | `"ebic_relaxed"` (default, see 3) | min EBIC (γ = 0.5) of the least-squares refit along the path | jointly with λ | one Gram matrix per node |
-  | `"bic_relaxed"` | min BIC of the least-squares refit | jointly | as above |
+  | `"bic_relaxed"` (default, see 3b) | min BIC of the least-squares refit along the path | jointly with λ | one Gram matrix per node |
+  | `"ebic_relaxed"` | min EBIC (γ = 0.5) of the least-squares refit | jointly | as above |
   | `"bic"`, `"ebic"` | min BIC / EBIC of the penalised fit | jointly | none |
   | `"cv_min"`, `"cv_1se"` | `nfolds`-fold CV, `lambda.min` / `lambda.1se` (rule of 0.1.0) | BIC at the selected λ | CV |
   | `"stability_bic"` | stability selection | those of `"bic_relaxed"` | 50 subsample paths |
@@ -78,13 +79,28 @@ Last updated: 2026-11-06.
   - QR fallback when X_s'X_s is singular;
   - identical to `lm.fit` to 1e-14.
 - **`fit_node()`** computes `bic_relaxed` and `ebic_relaxed` along each path when the rule needs them.
-- **Default `selection = "ebic_relaxed"`** (was `"bic"` in the development version, `cv_min` without refit in 0.1.0).
+- **Default `selection = "ebic_relaxed"`** on 2026-11-06 (was `"bic"` in the development version, `cv_min` without refit in 0.1.0); replaced by `"bic_relaxed"` on 2026-11-07 (see 3b).
 - **Evidence for the choice** (paper repository, `Simulation_analysis_v2/selection_test/` and `Add_simulation_analysis/`):
   - the relaxed criteria remove the decline with n;
   - EBIC relaxed is best or tied in 23 of 24 prior × OR/AND × n cells (overall F1);
   - it matches stability selection at about one fifth of the cost;
   - BIC relaxed over-selects when P is large relative to n.
 - **`stability_bic`** now takes its hyperparameters from `"bic_relaxed"`, which adds under 2% to the cost.
+
+## 3b. Final defaults: relaxed BIC with AND (2026-11-07)
+
+- `selection` default `"bic_relaxed"` (was `"ebic_relaxed"`) and `symm_method` default `"AND"` (was `"OR"`, also in 0.1.0), in `prcggm()` and `prcggm_slurm_prepare()`; order of `rules` in `resolve_selection()` updated.
+- **Reason** (paper simulations, Supplementary Parts 1 and 2, 100 replications): the relaxed BIC with AND is the most accurate combination for n ≥ 5000 and keeps improving with n, in particular for binary covariate effects (the setting of the paper's case study). The relaxed EBIC with OR is best for small samples (n ≈ 1000) and is recommended there. F1, n = 1k / 5k / 10k / 20k (p = 100, q = 3, noisy prior):
+
+  | Component | BIC relaxed + AND | EBIC relaxed + OR |
+  |---|---|---|
+  | Baseline | 0.90 / 0.98 / 0.99 / 0.99 | 0.91 / 0.97 / 0.97 / 0.96 |
+  | Binary effect | 0.63 / 0.97 / 0.99 / 0.99 | 0.64 / 0.95 / 0.96 / 0.95 |
+  | Continuous effect | 0.08 / 0.53 / 0.83 / 0.97 | 0.06 / 0.58 / 0.86 / 0.97 |
+  | Overall | 0.71 / 0.89 / 0.95 / 0.98 | 0.73 / 0.89 / 0.94 / 0.96 |
+
+- Documentation: "Selection rules" section of `prcggm()` (BIC relaxed first, with the pairing guideline), `symm_method` argument, vignette ("Hyperparameters": table and paragraph on the default and the guideline), `NEWS.md` (new breaking-change item on `symm_method`; 0.1.0 reproduced with `selection = "cv_min", refit = FALSE, symm_method = "OR"`), `DESCRIPTION`.
+- Test: the default fit has `selection = "bic_relaxed"` and `symm_method = "AND"`.
 
 ## 4. Lasso without covariates
 
@@ -140,7 +156,7 @@ Last updated: 2026-11-06.
 ## 8. Tests
 
 `tests/testthat/test-prcggm.R`:
-- relaxed EBIC with refit is the default, and the refit keeps the support;
+- relaxed BIC, AND and refit are the defaults, and the refit keeps the support;
 - the refit is least squares (residuals orthogonal to the selected predictors);
 - all eight rules run;
 - EBIC is never denser than BIC, on the penalised and on the relaxed RSS;
