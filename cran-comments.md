@@ -25,8 +25,9 @@ the deprecated argument `lambda_prec_type` still works, with a warning.
 * local macOS (aarch64), R 4.3.0
 * win-builder: Windows, R-devel
 * win-builder: Windows, R-release
-* R-hub v2 (GitHub Actions), R-devel: Ubuntu Linux (x86_64), Windows
-  (x86_64), macOS (x86_64) and macOS (arm64)
+* R-hub v2 (GitHub Actions), R-devel (2026-11-17 to 2026-11-25,
+  r90926–r90985): Ubuntu Linux (x86_64), Windows (x86_64), macOS (x86_64)
+  and macOS (arm64); Status: OK on all four
 
 ## R CMD check results
 
