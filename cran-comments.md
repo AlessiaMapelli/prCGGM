@@ -2,7 +2,7 @@
 
 This is an update of prCGGM 0.1.0 (on CRAN since 2026-11-17) to 0.2.0.
 
-It is submitted about one month after the first release because it brings
+It is submitted soon after the first release because it brings
 the package in line with the revised version of the paper it implements
 (Mapelli et al. 2026, arXiv:2606.31805). The simulations of the revision
 showed that the previous default selection rule (cross-validation with
@@ -30,7 +30,16 @@ the deprecated argument `lambda_prec_type` still works, with a warning.
 
 ## R CMD check results
 
-0 errors | 0 warnings | 0 notes
+0 errors | 0 warnings | 1 note
+
+* checking CRAN incoming feasibility ... NOTE
+  Days since last update: 8
+
+  We apologise for the quick update. As explained above, the default
+  selection rule of 0.1.0 gives overly dense networks for large samples,
+  which is the main use case of the package (biobank-scale proteomics). We
+  would like users to have the corrected defaults, which the revised paper
+  describes, as soon as possible.
 
 ## Reverse dependencies
 
