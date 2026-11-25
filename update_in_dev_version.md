@@ -3,12 +3,12 @@
 This file tracks every change made since version 0.1.0:
 
 - **Version 0.1.0:** branch `main`, commit `c8393c8`, the CRAN submission.
-- **Where the changes are:** branch `v.0.2` (committed 2026-11-06), version `0.1.0.9000`.
-- **Release plan:** to be released as 0.2.0 once CRAN has accepted 0.1.0. The user-facing summary is in `NEWS.md`.
+- **Where the changes are:** branch `v.0.2` (committed 2026-11-06), version `0.2.0` since 2026-11-25 (was `0.1.0.9000`).
+- **Release plan:** 0.1.0 is on CRAN since 2026-11-17. 0.2.0 is to be submitted in mid-December 2026 (CRAN asks for updates no more often than every 1–2 months). The user-facing summary is in `NEWS.md`.
 - **Build:** this file is excluded from the build (`.Rbuildignore`).
 - **Companion file:** the paper repository has its own tracking file, `Complete_projects/Prior-informed-conditional-GGMs/update_in_dev_version.md`. The package and the template `ggReg_main_functions.R` implement the same estimator and are checked against each other.
 
-Last updated: 2026-11-07. The changes of 2026-11-07 (3b) are committed on `v.0.2`.
+Last updated: 2026-11-25 (section 9, CRAN 0.2.0 preparation).
 
 ---
 
@@ -185,8 +185,26 @@ The selection label in `print()`/`summary()` is exercised by the existing print/
 | Package vs template, BIC/EBIC with and without refit | identical (2026-11-04) |
 | Package vs template, `ebic_relaxed`, `bic_relaxed`, `bic`, `stability_bic` (`prcggm_example`, `mean_estimation = FALSE`) | same λ, α, ϑ and network supports |
 
+## 9. CRAN 0.2.0 preparation (2026-11-25)
+
+- **Version:** `DESCRIPTION` 0.1.0.9000 → 0.2.0; `NEWS.md` heading "prCGGM 0.2.0".
+- **`cran-comments.md`:** rewritten for an update. It explains why the update comes about a month after 0.1.0: the revised paper changes the default selection rule, which in 0.1.0 selects increasingly dense networks as n grows.
+- **Guideline for P / n ≥ 0.5:** `stability_bic` with OR, from the simulations of 2026-11-22.
+  - `README.md` gains a section "Selection of the network": the defaults, plus a table of the three guidelines of the paper. P = (p − 1)(q + 1) is the number of predictors per node regression (1460 in the T2D application).
+  - The vignette sentence "the relaxed rules were more accurate than stability selection" was too general and is replaced by the three guidelines.
+- **Local check** (R 4.3.0, macOS aarch64): `R CMD check --as-cran` gives 0 errors, 0 warnings, 2 NOTEs.
+  - Both NOTEs come from the local machine: "unable to verify current time", and HTML validation warnings from the old local HTML Tidy.
+  - Pandoc must be on the `PATH` for the README/NEWS check: `export PATH=/Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64:$PATH`.
+  - The package must be built from a local copy without `.git`, because `R CMD build` cannot copy `.git` from the network share.
+- **Still to do at submission:**
+  - win-builder R-devel and R-release (`devtools::check_win_devel()`, `devtools::check_win_release()`);
+  - R-hub v2 (`rhub::rhub_check()`, after the push);
+  - update the test environments in `cran-comments.md`;
+  - `devtools::submit_cran()`;
+  - after acceptance: merge `v.0.2` into `main`, tag `v0.2.0`.
+
 ## Open points
 
-- **Release:** branch `v.0.2`. Bump to 0.2.0 and merge into `main` after CRAN accepts 0.1.0.
+- **Release:** branch `v.0.2`, version 0.2.0. Submission in mid-December 2026 (section 9); merge into `main` after acceptance.
 - **Default grids:** aligned with the paper (6b, decided 2026-11-06).
 - **Mean step:** still a cross-validated lasso (`lambda_mean_type`). Unchanged for now.

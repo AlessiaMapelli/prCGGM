@@ -51,6 +51,25 @@ prior-informed conditional GGM (both). Node-wise regressions run
 sequentially, in parallel (`ncores`), or as SLURM array jobs with
 `prcggm_slurm_prepare()`, `prcggm_node()` and `prcggm_slurm_collect()`.
 
+## Selection of the network
+
+By default (since version 0.2.0), the penalty and the hyperparameters of
+each node-wise regression are chosen by the BIC of the least-squares refit
+(`selection = "bic_relaxed"`), the selected edges are refitted by least
+squares (`refit = TRUE`), and an edge is kept only if both of its node-wise
+regressions select it (`symm_method = "AND"`). The `selection` argument
+also offers the extended BIC, BIC on the penalised fit, cross-validation
+and stability selection. The guidelines of the paper:
+
+| Setting | Recommended rule |
+|---|---|
+| n of 5000 or more | `selection = "bic_relaxed"`, `symm_method = "AND"` (default) |
+| n around 1000 | `selection = "ebic_relaxed"`, `symm_method = "OR"` |
+| P / n ≥ 0.5, with P = (p − 1)(q + 1) predictors per node regression | `selection = "stability_bic"`, `symm_method = "OR"` |
+
+`selection = "cv_min", refit = FALSE, symm_method = "OR"` reproduces
+version 0.1.0. See `NEWS.md` for all changes.
+
 See `vignette("prCGGM")` for a complete walk-through.
 
 ## Reproducing the paper

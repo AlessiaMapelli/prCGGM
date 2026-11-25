@@ -1,4 +1,4 @@
-# prCGGM 0.2.0 (development version)
+# prCGGM 0.2.0
 
 ## New features
 

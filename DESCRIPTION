@@ -1,7 +1,7 @@
 Package: prCGGM
 Type: Package
 Title: Prior-Informed Conditional Gaussian Graphical Models
-Version: 0.1.0.9000
+Version: 0.2.0
 Authors@R: c(
     person("Alessia", "Mapelli", email = "alessia.mapelli@polimi.it",
            role = c("aut", "cre")),

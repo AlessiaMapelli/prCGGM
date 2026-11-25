@@ -1,27 +1,40 @@
 ## Submission
 
-This is a new submission.
+This is an update of prCGGM 0.1.0 (on CRAN since 2026-11-17) to 0.2.0.
+
+It is submitted about one month after the first release because it brings
+the package in line with the revised version of the paper it implements
+(Mapelli et al. 2026, arXiv:2606.31805). The simulations of the revision
+showed that the previous default selection rule (cross-validation with
+`lambda.min`) selects increasingly dense networks as the sample size grows.
+Version 0.2.0 therefore:
+
+* adds the `selection` argument with relaxed BIC / extended BIC,
+  BIC / extended BIC, cross-validation and stability-selection rules, and a
+  least-squares refit of the selected edges (`refit`);
+* changes the defaults to `selection = "bic_relaxed"`, `refit = TRUE` and
+  `symm_method = "AND"`, the combination recommended in the paper;
+* aligns `simulate_prcggm_data()` with the simulation design of the paper.
+
+The changes are listed in `NEWS.md`. The settings of version 0.1.0 can be
+reproduced with `selection = "cv_min", refit = FALSE, symm_method = "OR"`;
+the deprecated argument `lambda_prec_type` still works, with a warning.
 
 ## Test environments
 
 * local macOS (aarch64), R 4.3.0
-* win-builder: Windows Server 2022, R-devel (2026-10-28 r90783 ucrt)
-* win-builder: Windows Server 2022, R-release (4.6.2)
+* win-builder: Windows, R-devel
+* win-builder: Windows, R-release
 * R-hub v2 (GitHub Actions), R-devel: Ubuntu Linux (x86_64), Windows
   (x86_64), macOS (x86_64) and macOS (arm64)
 
 ## R CMD check results
 
-0 errors | 0 warnings | 1 note
+0 errors | 0 warnings | 0 notes
 
-* checking CRAN incoming feasibility ... NOTE
-  New submission
+## Reverse dependencies
 
-  Possibly misspelled words in DESCRIPTION:
-    Mapelli, al, et, proteomics
-
-  These are the author's surname in the reference to the method
-  ("Mapelli et al. (2026)") and a standard technical term.
+There are no reverse dependencies.
 
 ## Notes for the reviewers
 

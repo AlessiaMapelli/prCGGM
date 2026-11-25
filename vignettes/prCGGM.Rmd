@@ -154,13 +154,15 @@ accurate but much more expensive.
 
 The node-wise estimates are combined with `symm_method`: `"AND"` (default)
 keeps an edge only if it is selected in both regressions, `"OR"` if it is
-selected in either. In the simulations of the paper the relaxed rules were
-more accurate than stability selection at a fraction of its cost.
-`"bic_relaxed"` with `"AND"` (the default) was the most accurate combination
-for $n \ge 5000$, in particular for binary covariate effects, while
-`"ebic_relaxed"` with `"OR"` was preferable for small samples
-($n \approx 1000$), where the BIC selects more false edges in single
-regressions. The settings of the rules can
+selected in either. In the simulations of the paper, `"bic_relaxed"` with
+`"AND"` (the default) was the most accurate combination for $n \ge 5000$, in
+particular for binary covariate effects, while `"ebic_relaxed"` with `"OR"`
+was preferable for small samples ($n \approx 1000$), where the BIC selects
+more false edges in single regressions. Both relaxed rules break down when
+the number of predictors of each node regression, $P = (p - 1)(q + 1)$ with
+$q$ the number of covariate columns, approaches or exceeds $n$: for
+$P / n \ge 0.5$, `"stability_bic"` with `"OR"` recovered the population-level
+network much better, at several times the cost. The settings of the rules can
 be changed with `selection_control`, and `refit = FALSE` returns the
 penalised coefficients.
 
