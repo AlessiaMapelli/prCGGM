@@ -23,8 +23,8 @@ the deprecated argument `lambda_prec_type` still works, with a warning.
 ## Test environments
 
 * local macOS (aarch64), R 4.3.0
+* win-builder: Windows, R-release (4.6.2); Status: OK
 * win-builder: Windows, R-devel
-* win-builder: Windows, R-release
 * R-hub v2 (GitHub Actions), R-devel (2026-11-17 to 2026-11-25,
   r90926–r90985): Ubuntu Linux (x86_64), Windows (x86_64), macOS (x86_64)
   and macOS (arm64); Status: OK on all four
@@ -36,7 +36,9 @@ the deprecated argument `lambda_prec_type` still works, with a warning.
 * checking CRAN incoming feasibility ... NOTE
   Days since last update: 8
 
-  We apologise for the quick update. As explained above, the default
+  We apologise for the quick update. Version 0.1.0 was submitted on
+  2026-10-30 and published on 2026-11-17; the changes of 0.2.0 were
+  developed while 0.1.0 was under review. As explained above, the default
   selection rule of 0.1.0 gives overly dense networks for large samples,
   which is the main use case of the package (biobank-scale proteomics). We
   would like users to have the corrected defaults, which the revised paper
